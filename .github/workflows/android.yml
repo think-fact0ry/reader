@@ -41,6 +41,19 @@ jobs:
           name: apk
           path: out/*.apk
 
+      - name: 사이트에도 최신 APK 반영 (설치 페이지가 가리키는 경로)
+        run: |
+          cp out/saenggak-reader.apk app.apk
+          if [ -n "$(git status --porcelain app.apk)" ]; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add app.apk
+            git commit -m "APK 갱신 (자동)"
+            git push
+          else
+            echo "변경 없음"
+          fi
+
       - name: Releases에 올리기
         uses: softprops/action-gh-release@v2
         with:

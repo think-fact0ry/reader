@@ -739,7 +739,9 @@ async function openFromNative() {
 // ───────────────────── 앱 설치 안내 (?install=1)
 // 링크 하나로 끝나게 만드는 화면 — 사람마다 말로 안내하지 않기 위해서다.
 // (스토어에 올리기 전까지의 다리. 스토어 배포가 확정되면 이 화면은 스토어 링크만 남기고 단순해진다)
-const APK_URL = 'https://github.com/think-fact0ry/reader/releases/download/apk-latest/saenggak-reader.apk';
+// 우리 사이트에 직접 둔다 — GitHub Releases는 302 두 번에 긴 서명 URL이라 인앱 브라우저가 헤매기 쉽다.
+// Pages도 Content-Type을 application/vnd.android.package-archive로 준다(08-12 실측) = 설치 프롬프트가 뜨는 조건 충족.
+const APK_URL = 'app.apk';
 function renderInstall() {
   document.body.innerHTML = `
     <section class="view on" style="overflow:auto">
