@@ -1,0 +1,154 @@
+/* 문서리더 — A안(토스 그린) 스킨. 색·radius = docs/1_원칙_디자인UX.md §3.1 정본 토큰 */
+:root{
+  --g50:#f9fafb; --g100:#f2f4f6; --g200:#e5e8eb; --g300:#d1d6db;
+  --g400:#b0b8c1; --g500:#8b95a1; --g600:#6b7684; --g700:#4e5968;
+  --g800:#333d4b; --g900:#191f28;
+  --green50:#f8fbf9; --green100:#e9f8ee; --green200:#cef2db;
+  --green600:#3a8a5f; --green700:#166841; --green800:#01492a;
+  --red:#f04452; --warn-weak-bg:#fef4e2; --warn-weak-fg:#c07f00;
+  --r-sm:clamp(7px,1.8vw,10px); --r-md:clamp(10px,2.6vw,14px); --r-lg:clamp(13px,3.2vw,20px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;font-family:Pretendard,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  color:var(--g900);background:#fff;word-break:keep-all;line-height:1.55;-webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none}
+button{font-family:inherit;cursor:pointer}
+.view{display:none;flex-direction:column;height:100dvh}
+.view.on{display:flex}
+svg.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.12em}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ── 문서함 ── */
+.da-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px;flex:none}
+.da-title{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.da-open{margin:10px 18px 4px;padding:16px;border:0;border-radius:15px;background:var(--green700);color:#fff;
+  font-size:17px;font-weight:700;flex:none}
+.da-open:active{background:var(--green800)}
+.da-hint{margin:8px 20px 2px;font-size:12.5px;color:var(--g500);text-align:center;flex:none}
+.da-sec{margin:16px 20px 8px;font-size:13px;font-weight:700;color:var(--g500);flex:none}
+.da-list{flex:1;overflow-y:auto;padding-bottom:24px}
+.da-card{display:flex;align-items:center;gap:12px;margin:0 14px 9px;padding:13px;border:1px solid var(--g100);
+  border-radius:14px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.04);width:calc(100% - 28px);text-align:left}
+.da-card:active{background:var(--g50)}
+.fbadge{flex:none;font-size:11.5px;font-weight:800;border-radius:8px;padding:7px 8px;letter-spacing:.2px}
+.fb-hwp{background:#e8f0fd;color:#2f5bc4}
+.fb-xls{background:var(--green100);color:var(--green800)}
+.fb-pdf{background:#fdecec;color:#c0392b}
+.fb-img{background:var(--g100);color:var(--g600)}
+.fb-etc{background:var(--g100);color:var(--g600)}
+.da-card>div{min-width:0}
+.da-name{font-size:14px;font-weight:600;color:var(--g900);line-height:1.35;overflow:hidden;display:-webkit-box;
+  -webkit-line-clamp:1;-webkit-box-orient:vertical;word-break:break-all}
+.da-meta{font-size:12px;color:var(--g500);margin-top:2px}
+.da-empty{margin:26px 20px;text-align:center;color:var(--g500);font-size:13.5px;line-height:1.7}
+.topbanner{margin:10px 14px 0;padding:12px 14px;border-radius:12px;background:var(--warn-weak-bg);color:var(--warn-weak-fg);
+  font-size:13px;line-height:1.5;flex:none}
+.topbanner button{margin-top:8px;border:0;border-radius:9px;background:var(--green700);color:#fff;font-size:13px;font-weight:700;padding:9px 14px}
+.installbar{display:none;align-items:center;gap:10px;margin:8px 14px 0;padding:11px 14px;border-radius:12px;
+  background:var(--green100);color:var(--green800);font-size:13px;flex:none}
+.installbar.on{display:flex}
+.installbar b{flex:none}
+.installbar button{flex:none;margin-left:auto;border:0;border-radius:9px;background:var(--green700);color:#fff;
+  font-size:13px;font-weight:700;padding:8px 13px}
+
+/* ── 뷰어 공통 ── */
+.vtop{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--g100);background:#fff;flex:none}
+.vtop .bk{color:var(--g700);font-size:20px;display:flex;background:none;border:0;padding:4px}
+.vtop .fn{flex:1;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.vtop .kb{color:var(--g500);font-size:19px;font-weight:800;background:none;border:0;padding:2px 8px}
+.vseg-wrap{padding:9px 14px 0;background:#fff;flex:none}
+.vseg{display:flex;background:var(--g100);border-radius:10px;padding:3px;font-size:13.5px;font-weight:700;color:var(--g500);max-width:220px}
+.vseg button{flex:1;padding:7px 0;border-radius:8px;border:0;background:none;color:inherit;font-weight:700;font-size:inherit}
+.vseg button.on{background:#fff;color:var(--g900);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.vbody{flex:1;overflow:auto;position:relative;background:var(--g100)}
+.vbody.white{background:#fff}
+.vfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;
+  border-top:1px solid var(--g100);background:#fff;flex:none;min-height:48px}
+.vfoot .hint{font-size:12.5px;color:var(--g500)}
+.vfoot .pg{font-size:13px;color:var(--g500);font-weight:600}
+.fbtn{border:1px solid var(--g200);background:var(--g100);border-radius:10px;padding:8px 16px;font-size:14px;font-weight:700;color:var(--g700)}
+.fbtn:active{background:var(--g200)}
+
+/* 페이지형(한글 원본·PDF) */
+.pages{padding:14px;display:flex;flex-direction:column;gap:12px;align-items:flex-start;min-width:100%;width:max-content}
+.pageph{background:#fff;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden;flex:none}
+.pageph svg{display:block;width:100%;height:auto}
+.pageph canvas{display:block;width:100%;height:auto}
+
+/* 읽기(리플로우) */
+.reflow{background:#fff;padding:18px 20px 40px;font-size:16px;line-height:1.8;max-width:760px;margin:0 auto}
+.reflow p{margin:0 0 10px}
+.reflow table{border-collapse:collapse;margin:10px 0;font-size:.92em;width:100%}
+.reflow th,.reflow td{border:1px solid var(--g300);padding:6px 8px;text-align:left;word-break:break-all}
+.reflow th{background:var(--g100)}
+.warnbar{margin:10px 14px;padding:11px 14px;border-radius:12px;background:var(--warn-weak-bg);color:var(--warn-weak-fg);font-size:13px;line-height:1.5}
+
+/* 엑셀 */
+.xlwrap{position:relative;height:100%;overflow:auto;background:#fff}
+.xltab{border-collapse:separate;border-spacing:0;font-size:13px;background:#fff}
+.xltab td,.xltab th{border-right:1px solid var(--g200);border-bottom:1px solid var(--g200);padding:6px 8px;
+  white-space:nowrap;max-width:340px;overflow:hidden;text-overflow:ellipsis;background:#fff;text-align:left;font-weight:400}
+.xltab .hd{background:var(--g100);color:var(--g700);font-weight:700;text-align:center}
+.xltab .stik-t{position:sticky;top:0;z-index:3}
+.xltab .stik-l{position:sticky;left:0;z-index:2;box-shadow:2px 0 4px rgba(0,0,0,.06)}
+.xltab .stik-t.stik-l{z-index:4}
+.xltab .num{text-align:right}
+.sheets{display:flex;gap:6px;overflow-x:auto;max-width:60%}
+.shtab{border:1px solid var(--g200);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;color:var(--g600);background:#fff;flex:none}
+.shtab.on{background:var(--green100);border-color:var(--green600);color:var(--green800)}
+.truncnote{margin:8px 14px;padding:9px 13px;border-radius:10px;background:var(--g100);color:var(--g600);font-size:12.5px}
+
+/* 이미지 */
+.imgwrap{display:flex;align-items:flex-start;justify-content:center;padding:14px;min-height:100%}
+.imgwrap img{max-width:100%;height:auto;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+
+/* HTML 표(xls 위장) */
+.htmlframe{width:100%;height:100%;border:0;background:#fff}
+
+/* ── 로딩 오버레이 ── */
+.loading{position:fixed;inset:0;background:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50}
+.loading.on{display:flex}
+.loading .bar{width:70%;max-width:340px;height:6px;border-radius:3px;background:var(--g100);overflow:hidden}
+.loading .bar i{display:block;height:100%;width:0;background:var(--green600);border-radius:3px;transition:width .2s}
+.loading .msg{font-size:14px;color:var(--g600)}
+.loading .cancel{border:1px solid var(--g200);background:#fff;border-radius:10px;padding:9px 18px;font-size:14px;color:var(--g600)}
+
+/* ── 바텀시트·스낵바·다이얼로그 ── */
+.sheetbg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:60}
+.sheetbg.on{display:block}
+.bsheet{position:fixed;left:0;right:0;bottom:-100%;background:#fff;border-radius:18px 18px 0 0;z-index:61;
+  padding:8px 0 max(12px, env(safe-area-inset-bottom));transition:bottom .22s}
+.bsheet.on{bottom:0}
+.bsheet .bi{display:block;width:100%;text-align:left;padding:15px 22px;font-size:15.5px;font-weight:600;border:0;background:none;border-bottom:1px solid var(--g100)}
+.bsheet .bi.danger{color:var(--red);font-weight:700}
+.bsheet .close{display:block;width:calc(100% - 32px);margin:10px 16px 0;text-align:center;border:1px solid var(--g200);
+  border-radius:12px;padding:12px;font-size:14.5px;font-weight:700;color:var(--g600);background:#fff}
+.snack{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));background:var(--g800);color:#fff;
+  border-radius:12px;padding:13px 15px;font-size:13.5px;display:none;align-items:center;gap:8px;z-index:70;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.snack.on{display:flex}
+.snack span{flex:1;min-width:0}
+.snack button{flex:none;border:0;background:none;color:#9fe0b8;font-weight:700;font-size:13.5px;padding:2px 4px}
+.dlg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:80;padding:24px}
+.dlg.on{display:flex}
+.dlg .box{background:#fff;border-radius:18px;padding:22px 20px 16px;width:100%;max-width:340px}
+.dlg h3{margin:0 0 8px;font-size:17px;letter-spacing:-.3px}
+.dlg p{margin:0 0 14px;font-size:14px;color:var(--g600);line-height:1.6}
+.dlg input{width:100%;border:1.5px solid var(--g200);background:var(--g100);border-radius:12px;padding:14px;font-size:17px;
+  font-family:inherit;outline:none;margin-bottom:14px;letter-spacing:2px}
+.dlg input:focus{border-color:var(--green600);background:#fff}
+.dlg .row{display:flex;gap:8px}
+.dlg .row button{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:700}
+.dlg .ghost{background:var(--g100);color:var(--g600)}
+.dlg .go{background:var(--green700);color:#fff}
+.errcard{margin:40px 20px;text-align:center;color:var(--g600);font-size:14px;line-height:1.7}
+.errcard b{display:block;font-size:16px;color:var(--g900);margin-bottom:6px}
+
+@media print{
+  body *{visibility:hidden}
+  #viewerView, #viewerView .vbody, #viewerView .vbody *{visibility:visible}
+  #viewerView .vbody{position:absolute;inset:0;overflow:visible;background:#fff}
+  .vtop,.vfoot,.vseg-wrap,.warnbar,.loading,.snack,.bsheet,.sheetbg{display:none!important}
+  .pages{width:auto;padding:0;gap:0}
+  .pageph{box-shadow:none;border-radius:0;page-break-after:always}
+}
