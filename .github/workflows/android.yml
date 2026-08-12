@@ -30,9 +30,10 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: 이름 붙이기
+        # 파일명은 영문으로 — GitHub Releases가 한글 자산명을 '_'로 바꿔 버린다(08-12 실측)
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release.apk "out/생각공작소_문서리더.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk out/saenggak-reader.apk
           ls -la out
 
       - uses: actions/upload-artifact@v4
