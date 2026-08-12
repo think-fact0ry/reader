@@ -7,6 +7,7 @@ importScripts('../vendor/exceljs.min.js', '../vendor/xlsx.full.min.js', '../vend
 const post = (m) => self.postMessage(m);
 const prog = (p, msg) => post({ type: 'progress', p, msg });
 const MAX_ROWS = 3000, MAX_COLS = 120;
+const EXTRA_ROWS = 50, EXTRA_COLS = 3; // 값 아래·오른쪽에 열어 두는 빈 입력 칸(양식 채우기용)
 
 const isCFB = (u8) => u8[0] === 0xd0 && u8[1] === 0xcf && u8[2] === 0x11 && u8[3] === 0xe0;
 const isZIP = (u8) => u8[0] === 0x50 && u8[1] === 0x4b;
@@ -65,9 +66,16 @@ async function modelFromExcelJS(u8) {
   const styles = ['']; const styleIdx = new Map([['', 0]]);
   wb.eachSheet((ws) => {
     if (ws.state && ws.state !== 'visible') return;
-    const dim = ws.dimensions || { top: 1, left: 1, bottom: ws.rowCount || 1, right: ws.columnCount || 1 };
-    const R = Math.min(dim.bottom || 1, MAX_ROWS), C = Math.min(dim.right || 1, MAX_COLS);
-    const truncated = (dim.bottom > MAX_ROWS) || (dim.right > MAX_COLS);
+    // 행 범위 두 값이 다르다: dimensions=값이 든 마지막 행 / rowCount=서식이 잡힌 마지막 행.
+    // dimensions만 쓰면 관공서 양식의 빈 입력 칸이 잘려 명단을 못 채우고(취합 서식 실측 5 vs 221),
+    // rowCount를 그대로 쓰면 8행짜리 파일이 1000행이 돼 폰에서 느려진다(현금영수증 실측).
+    // ⇒ 값이 든 데까지 + 빈 입력 칸 여유분.
+    const dim = ws.dimensions || { top: 1, left: 1, bottom: 1, right: 1 };
+    const dataRow = Math.max(dim.bottom || 1, 1), dataCol = Math.max(dim.right || 1, 1);
+    const capRow = Math.max(dataRow, ws.rowCount || 1), capCol = Math.max(dataCol, ws.columnCount || 1);
+    const R = Math.min(dataRow + EXTRA_ROWS, capRow, MAX_ROWS);
+    const C = Math.min(dataCol + EXTRA_COLS, capCol, MAX_COLS);
+    const truncated = (Math.min(capRow, MAX_ROWS) > R) || (Math.min(capCol, MAX_COLS) > C);
     const rows = [];
     for (let r = 1; r <= R; r++) {
       const row = ws.getRow(r); const arr = [];
@@ -102,7 +110,7 @@ async function modelFromExcelJS(u8) {
     } catch {}
     let frozen = { r: 0, c: 0 };
     try { const v = (ws.views || [])[0]; if (v && v.state === 'frozen') frozen = { r: v.ySplit || 0, c: v.xSplit || 0 }; } catch {}
-    sheets.push({ name: ws.name, rows, merges, frozen, truncated, totalR: dim.bottom, totalC: dim.right });
+    sheets.push({ name: ws.name, rows, merges, frozen, truncated, totalR: capRow, totalC: capCol });
   });
   return { kind: 'grid', sheets, styles };
 }
@@ -159,9 +167,11 @@ self.onmessage = async (e) => {
       }
       if (!isZIP(u8)) { post({ type: 'error', msg: '엑셀 파일 형식이 아니에요' }); return; }
       prog(45, '문서를 여는 중이에요');
+      const t0 = Date.now();
       const model = await modelFromExcelJS(u8);
       srcZip = u8; srcEditable = true;
-      post({ type: 'ready', model, editable: true });
+      const cells = model.sheets.reduce((a, s) => a + s.rows.length * (s.rows[0] ? s.rows[0].length : 0), 0);
+      post({ type: 'ready', model, editable: true, ms: Date.now() - t0, cells });
       return;
     }
     if (m.cmd === 'save') {

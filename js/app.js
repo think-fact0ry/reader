@@ -42,10 +42,11 @@ async function renderList() {
   }
   list.innerHTML = all.map(d => {
     const [label, cls] = badgeOf(d.ext);
+    const n = Array.isArray(d.edits) ? d.edits.length : 0;
     return `<button class="da-card" data-id="${d.id}">
       <span class="fbadge ${cls}">${label}</span>
       <div><div class="da-name">${esc(d.name)}</div>
-      <div class="da-meta">${fmtTime(d.lastOpenedAt || d.addedAt)} · ${srcLabel[d.source] || ''}</div></div>
+      <div class="da-meta">${fmtTime(d.lastOpenedAt || d.addedAt)} · ${srcLabel[d.source] || ''}${n ? ` · <b class="editing">고치는 중 ${n}칸</b>` : ''}</div></div>
     </button>`;
   }).join('');
   list.querySelectorAll('.da-card').forEach(b => b.addEventListener('click', () => openDoc(b.dataset.id, true)));
@@ -86,6 +87,7 @@ async function registerFile(file, source) {
     size: file.size, bytes: cacheable ? file : null,
     addedAt: existing ? existing.addedAt : Date.now(), lastOpenedAt: Date.now(),
     source, anchor: existing ? existing.anchor : null,
+    edits: existing ? existing.edits : undefined, // 같은 파일을 다시 골라도 고치던 내용은 살아남는다
   };
   if (!cacheable) transientBlobs.set(id, file);
   try { await docPut(doc); await enforceLRU(id); } catch { transientBlobs.set(id, file); }
@@ -328,9 +330,36 @@ async function viewSheet(doc, blob) {
 
   const vb = $('vBody'); vb.className = 'vbody white';
   let si = 0, picked = null; // picked = 편집 중인 td
-  const edits = new Map();   // key `시트|r|c` → { sheet, r, c, value }
+  const edits = new Map();   // key `시트|행|열` → { sheet, r, c, value }
   cur.edits = edits;
   cur.saveSheet = () => saveEditedSheet(doc, worker, edits);
+
+  // 고치던 내용 복원 — 앱을 나갔다 와도(전화·카톡) 입력이 날아가지 않게.
+  // 키는 파일 신원(docId=이름+크기+수정시각)에 매달려 있어 다른 파일로 새지 않는다([[idempotency-key-with-time-unit-breaks]]).
+  const saved = (await docGet(doc.id))?.edits;
+  if (Array.isArray(saved) && saved.length) {
+    for (const e of saved) {
+      edits.set(`${e.sheet}|${e.r}|${e.c}`, e);
+      const sh = model.sheets.find(s => s.name === e.sheet);
+      if (sh && sh.rows[e.r - 1]) {
+        const prev = sh.rows[e.r - 1][e.c - 1];
+        const sidx = prev === 0 || !prev ? 0 : prev[1];
+        sh.rows[e.r - 1][e.c - 1] = e.value ? [e.value, sidx] : 0;
+      }
+    }
+    $('btnSave').style.display = '';
+    setTimeout(() => snackbar(`고치던 내용 ${saved.length}칸을 그대로 뒀어요`, '', null), 400);
+  }
+  let saveTimer = 0;
+  const persistEdits = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      const d = await docGet(doc.id);
+      if (!d) return;
+      d.edits = [...edits.values()];
+      try { await docPut(d); } catch {}
+    }, 400);
+  };
 
   function renderSheet() {
     const sh = model.sheets[si];
@@ -364,7 +393,7 @@ async function viewSheet(doc, blob) {
       html += '</tr>';
     }
     html += '</table>';
-    if (sh.truncated) html += `<div class="truncnote">표가 커서 ${Math.min(sh.totalR, 99999)}행 중 ${sh.rows.length}행까지 보여드려요 · 전체는 PC에서 확인해 주세요</div>`;
+    if (sh.truncated) html += `<div class="truncnote">${sh.rows.length}행까지 보여드려요 (양식은 ${Math.min(sh.totalR, 99999)}행까지) · 더 필요하면 PC에서 채워 주세요</div>`;
     wrap.innerHTML = html;
     attachPinch(wrap, () => wrap.querySelector('.xltab'), { min: 0.5, max: 3 });
 
@@ -410,13 +439,13 @@ async function viewSheet(doc, blob) {
     if (picked) picked.classList.remove('picked');
     picked = null; editTarget = null;
   }
-  function commitEdit() {
+  function commitEdit(moveNext) {
     if (!editTarget) return;
     const v = $('editInput').value;
     const { sheet, r, c, td } = editTarget;
     const sh = model.sheets.find(s => s.name === sheet);
     edits.set(`${sheet}|${r}|${c}`, { sheet, r, c, value: v });
-    // 화면·모델 즉시 반영(다음 렌더에도 유지)
+    // 화면·모델 즉시 반영(시트를 오갔다 와도 유지)
     td.textContent = v;
     td.classList.add('edited');
     if (sh && sh.rows[r - 1]) {
@@ -425,17 +454,23 @@ async function viewSheet(doc, blob) {
       sh.rows[r - 1][c - 1] = v ? [v, sidx] : 0;
     }
     $('btnSave').style.display = '';
-    closeEdit();
+    persistEdits();
+    // 한 사람 정보가 한 줄에 가로로 놓이는 서식이 많아 다음 칸 = 오른쪽
+    const next = moveNext ? td.nextElementSibling : null;
+    if (next && next.dataset.r) { pickCell(next); next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    else closeEdit();
   }
-  cur.resetEdits = () => {
+  cur.resetEdits = async () => {
     edits.clear();
     $('btnSave').style.display = 'none';
+    const d = await docGet(doc.id);
+    if (d) { delete d.edits; try { await docPut(d); } catch {} }
     toast('고친 내용을 되돌렸어요 · 원본 그대로예요');
     openDoc(doc.id, false); // 원본에서 다시 읽어 화면 복구
   };
 
-  $('editOk').onclick = commitEdit;
-  $('editInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(); } };
+  $('editOk').onclick = () => commitEdit(true);
+  $('editInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(true); } };
 
   renderSheet();
   loadingHide();
@@ -665,13 +700,78 @@ window.addEventListener('popstate', () => {
   else showList(false);
 });
 
+// ───────────────────── 자가진단 (?diag=1) — 실기기에서 무엇이 되고 안 되는지 앱이 스스로 보고
+async function renderDiag() {
+  const rows = [];
+  const yn = (b) => b ? '✅ 예' : '❌ 아니오';
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const ua = navigator.userAgent;
+  const inApp = /KAKAOTALK|NAVER\(inapp|inapp;|FBAV|Instagram|Line\//i.test(ua);
+  const br = /SamsungBrowser/i.test(ua) ? '삼성 인터넷' : /Chrome/i.test(ua) ? 'Chrome' : /Firefox/i.test(ua) ? 'Firefox' : '기타';
+  rows.push(['앱으로 설치돼 열림', yn(standalone), standalone ? '' : '홈 화면 아이콘으로 열어야 공유 진입이 됩니다']);
+  rows.push(['브라우저', (inApp ? '앱 안 브라우저(' + br + ')' : br), inApp ? '카톡·메일 앱 안에서 열림 — Chrome으로 열어야 합니다' : '']);
+  let swOk = !!navigator.serviceWorker.controller;
+  rows.push(['서비스워커 작동', yn(swOk), swOk ? '' : '새로고침 한 번 해 주세요(공유 진입이 이것에 매달립니다)']);
+  let canFile = false;
+  try {
+    const f = new File([new Uint8Array([1, 2, 3])], 't.hwp', { type: 'application/octet-stream' });
+    canFile = !!(navigator.canShare && navigator.canShare({ files: [f] }));
+  } catch {}
+  rows.push(['파일 공유·보내기 지원', yn(canFile), canFile ? '' : '수정본은 다운로드 폴더 저장으로 대체됩니다']);
+  let est = null, persisted = false;
+  try { est = await navigator.storage.estimate(); persisted = await navigator.storage.persisted(); } catch {}
+  rows.push(['저장 공간 사용', est ? `${(est.usage / 1048576).toFixed(1)}MB / ${(est.quota / 1048576 / 1024).toFixed(1)}GB` : '알 수 없음', '']);
+  rows.push(['저장소 보호(persist)', yn(persisted), persisted ? '' : '보호 안 됨 — 캐시라 지워져도 원본은 폰에 그대로']);
+  let wasmCached = false;
+  try {
+    const url = new URL('vendor/rhwp/rhwp_bg.wasm', location.href).href;
+    for (const k of await caches.keys()) {
+      if (!k.startsWith('vendor')) continue;
+      const c = await caches.open(k);
+      if (await c.match(url)) { wasmCached = true; break; }
+    }
+  } catch {}
+  rows.push(['한글 엔진 미리 받음', yn(wasmCached), wasmCached ? '한글 파일이 바로 열립니다' : '첫 한글 파일 열 때 7MB를 받습니다(1회)']);
+  const vs = (visualViewport && visualViewport.scale) ? visualViewport.scale.toFixed(2) : '1.00';
+  rows.push(['화면 확대 배율', vs, vs !== '1.00' ? '⚠️ 접근성 확대가 켜져 있으면 표 확대가 이중으로 될 수 있어요' : '']);
+  rows.push(['화면 크기', `${innerWidth}×${innerHeight} (배율 ${devicePixelRatio})`, '']);
+  const docs = await docsAll();
+  rows.push(['앱에 담긴 문서', `${docs.length}개`, '']);
+
+  document.body.innerHTML = `
+    <section class="view on" style="overflow:auto">
+      <div class="da-head"><div class="da-title">상태 확인</div></div>
+      <div style="padding:0 16px 20px">
+        <table class="diag">${rows.map(r => `<tr><td class="k">${esc(r[0])}</td><td class="v">${esc(r[1])}</td></tr>${r[2] ? `<tr><td colspan="2" class="note">${esc(r[2])}</td></tr>` : ''}`).join('')}</table>
+        <button class="da-open" id="dgCopy" style="margin:16px 0 0">이 내용 복사하기</button>
+        <button class="fbtn" id="dgBack" style="width:100%;margin-top:10px;padding:13px">문서함으로</button>
+      </div>
+    </section>`;
+  $('dgCopy').onclick = async () => {
+    const txt = '[문서리더 상태]\n' + rows.map(r => `${r[0]}: ${r[1]}${r[2] ? ' — ' + r[2] : ''}`).join('\n') + `\n${ua}`;
+    try { await navigator.clipboard.writeText(txt); $('dgCopy').textContent = '복사했어요 · 카톡에 붙여넣기'; }
+    catch { alert(txt); }
+  };
+  $('dgBack').onclick = () => location.href = './';
+}
+
+// 한글 엔진(7MB WASM)은 처음 여는 순간에 받으면 느리다 — 쉬는 동안 미리 받아 캐시에 넣어 둔다
+function prefetchHwpEngine() {
+  const c = navigator.connection;
+  if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return; // 데이터 절약 중이면 건너뜀
+  const go = () => { fetch('vendor/rhwp/rhwp_bg.wasm', { cache: 'force-cache' }).catch(() => {}); };
+  if ('requestIdleCallback' in window) requestIdleCallback(() => setTimeout(go, 2500), { timeout: 10000 });
+  else setTimeout(go, 6000);
+}
+
 // ───────────────────── 진입 처리
 const params = new URLSearchParams(location.search);
 enforceLRU(params.get('doc') || null); // 공유 진입으로 쌓인 캐시도 상한 유지 (오리진 공유 수용 조건)
 if (params.get('share') === 'toobig') toast('60MB가 넘는 파일은 열 수 없어요');
 else if (params.get('share') === 'fail' || params.get('share') === 'empty') toast('공유로 받은 파일을 읽지 못했어요 · [파일 열기]로 시도해 주세요');
-if (params.get('doc')) openDoc(params.get('doc'), false);
-else renderList();
+if (params.get('diag')) renderDiag();
+else if (params.get('doc')) openDoc(params.get('doc'), false);
+else { renderList(); prefetchHwpEngine(); }
 
 // ───────────────────── SW·설치·인앱 브라우저
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
