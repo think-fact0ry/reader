@@ -708,20 +708,20 @@ async function renderDiag() {
   const ua = navigator.userAgent;
   const inApp = /KAKAOTALK|NAVER\(inapp|inapp;|FBAV|Instagram|Line\//i.test(ua);
   const br = /SamsungBrowser/i.test(ua) ? '삼성 인터넷' : /Chrome/i.test(ua) ? 'Chrome' : /Firefox/i.test(ua) ? 'Firefox' : '기타';
-  rows.push(['앱으로 설치돼 열림', yn(standalone), standalone ? '' : '홈 화면 아이콘으로 열어야 공유 진입이 됩니다']);
-  rows.push(['브라우저', (inApp ? '앱 안 브라우저(' + br + ')' : br), inApp ? '카톡·메일 앱 안에서 열림 — Chrome으로 열어야 합니다' : '']);
+  rows.push(['앱으로 설치돼 열림', yn(standalone), standalone ? '' : '홈 화면 아이콘으로 열어야 공유 진입이 됩니다', 'warn']);
+  rows.push(['브라우저', (inApp ? '앱 안 브라우저(' + br + ')' : br), inApp ? '카톡·메일 앱 안에서 열림 — Chrome으로 열어야 합니다' : '', 'warn']);
   let swOk = !!navigator.serviceWorker.controller;
-  rows.push(['서비스워커 작동', yn(swOk), swOk ? '' : '새로고침 한 번 해 주세요(공유 진입이 이것에 매달립니다)']);
+  rows.push(['서비스워커 작동', yn(swOk), swOk ? '' : '새로고침 한 번 해 주세요(공유 진입이 이것에 매달립니다)', 'warn']);
   let canFile = false;
   try {
     const f = new File([new Uint8Array([1, 2, 3])], 't.hwp', { type: 'application/octet-stream' });
     canFile = !!(navigator.canShare && navigator.canShare({ files: [f] }));
   } catch {}
-  rows.push(['파일 공유·보내기 지원', yn(canFile), canFile ? '' : '수정본은 다운로드 폴더 저장으로 대체됩니다']);
+  rows.push(['파일 공유·보내기 지원', yn(canFile), canFile ? '' : '수정본은 다운로드 폴더 저장으로 대체됩니다', 'info']);
   let est = null, persisted = false;
   try { est = await navigator.storage.estimate(); persisted = await navigator.storage.persisted(); } catch {}
   rows.push(['저장 공간 사용', est ? `${(est.usage / 1048576).toFixed(1)}MB / ${(est.quota / 1048576 / 1024).toFixed(1)}GB` : '알 수 없음', '']);
-  rows.push(['저장소 보호(persist)', yn(persisted), persisted ? '' : '보호 안 됨 — 캐시라 지워져도 원본은 폰에 그대로']);
+  rows.push(['저장소 보호(persist)', yn(persisted), persisted ? '' : '보호 안 됨 — 캐시라 지워져도 원본은 폰에 그대로', 'info']);
   let wasmCached = false;
   try {
     const url = new URL('vendor/rhwp/rhwp_bg.wasm', location.href).href;
@@ -731,9 +731,9 @@ async function renderDiag() {
       if (await c.match(url)) { wasmCached = true; break; }
     }
   } catch {}
-  rows.push(['한글 엔진 미리 받음', yn(wasmCached), wasmCached ? '한글 파일이 바로 열립니다' : '첫 한글 파일 열 때 7MB를 받습니다(1회)']);
+  rows.push(['한글 엔진 미리 받음', yn(wasmCached), wasmCached ? '한글 파일이 바로 열립니다' : '첫 한글 파일 열 때 7MB를 받습니다(1회)', wasmCached ? 'ok' : 'info']);
   const vs = (visualViewport && visualViewport.scale) ? visualViewport.scale.toFixed(2) : '1.00';
-  rows.push(['화면 확대 배율', vs, vs !== '1.00' ? '⚠️ 접근성 확대가 켜져 있으면 표 확대가 이중으로 될 수 있어요' : '']);
+  rows.push(['화면 확대 배율', vs, vs !== '1.00' ? '접근성 확대가 켜져 있으면 표 확대가 이중으로 될 수 있어요' : '', 'warn']);
   rows.push(['화면 크기', `${innerWidth}×${innerHeight} (배율 ${devicePixelRatio})`, '']);
   const docs = await docsAll();
   rows.push(['앱에 담긴 문서', `${docs.length}개`, '']);
@@ -742,7 +742,7 @@ async function renderDiag() {
     <section class="view on" style="overflow:auto">
       <div class="da-head"><div class="da-title">상태 확인</div></div>
       <div style="padding:0 16px 20px">
-        <table class="diag">${rows.map(r => `<tr><td class="k">${esc(r[0])}</td><td class="v">${esc(r[1])}</td></tr>${r[2] ? `<tr><td colspan="2" class="note">${esc(r[2])}</td></tr>` : ''}`).join('')}</table>
+        <table class="diag">${rows.map(r => `<tr><td class="k">${esc(r[0])}</td><td class="v">${esc(r[1])}</td></tr>${r[2] ? `<tr><td colspan="2" class="note ${r[3] || 'info'}">${esc(r[2])}</td></tr>` : ''}`).join('')}</table>
         <button class="da-open" id="dgCopy" style="margin:16px 0 0">이 내용 복사하기</button>
         <button class="fbtn" id="dgBack" style="width:100%;margin-top:10px;padding:13px">문서함으로</button>
       </div>

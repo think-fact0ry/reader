@@ -107,7 +107,10 @@ svg.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-
 .diag td{padding:11px 2px;border-bottom:1px solid var(--g100);vertical-align:top}
 .diag .k{color:var(--g600)}
 .diag .v{text-align:right;font-weight:700;white-space:nowrap;padding-left:10px}
-.diag .note{color:var(--warn-weak-fg);background:var(--warn-weak-bg);font-size:12.5px;border-radius:8px;padding:9px 11px;border:0}
+.diag .note{font-size:12.5px;border-radius:8px;padding:9px 11px;border:0}
+.diag .note.warn{color:var(--warn-weak-fg);background:var(--warn-weak-bg)}
+.diag .note.ok{color:var(--green800);background:var(--green100)}
+.diag .note.info{color:var(--g600);background:var(--g100)}
 .sheets{display:flex;gap:6px;overflow-x:auto;max-width:60%}
 .shtab{border:1px solid var(--g200);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;color:var(--g600);background:#fff;flex:none}
 .shtab.on{background:var(--green100);border-color:var(--green600);color:var(--green800)}
