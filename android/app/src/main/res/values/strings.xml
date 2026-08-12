@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">생각공작소 문서 리더</string>
-    <string name="open_with_label">문서 리더로 열기</string>
+    <string name="app_name">문서 리더기</string>
+    <string name="open_with_label">문서 리더기로 열기</string>
 </resources>

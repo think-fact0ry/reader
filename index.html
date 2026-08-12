@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
-<title>생각공작소 문서 리더</title>
+<title>생각공작소 문서 리더기</title>
 <meta name="description" content="한글(.hwp/.hwpx)·엑셀·PDF 서류를 광고 없이 읽어요">
-<meta property="og:title" content="생각공작소 문서 리더">
+<meta property="og:title" content="생각공작소 문서 리더기">
 <meta property="og:description" content="한글·엑셀·PDF 서류를 광고 없이 읽는 뷰어">
 <meta property="og:image" content="https://think-fact0ry.github.io/reader/icons/icon-512.png">
 <meta name="theme-color" content="#ffffff">
@@ -18,7 +18,12 @@
 
 <!-- ── 문서함 ── -->
 <section class="view on" id="listView">
-  <div class="da-head"><div class="da-title">생각공작소 문서 리더</div></div>
+  <div class="da-head">
+    <div>
+      <span class="da-brand">생각공작소</span>
+      <div class="da-title">문서 리더기</div>
+    </div>
+  </div>
   <div class="topbanner" id="inappBanner" style="display:none">
     카카오톡·네이버 앱 안 브라우저에서는 문서가 따로 저장돼 목록이 이어지지 않아요.
     <button id="openChrome">Chrome으로 열기</button>
@@ -27,9 +32,13 @@
   <div class="installbar" id="installBar"><span>홈 화면에 설치하면 공유로 바로 열 수 있어요</span><button id="btnInstall">설치</button></div>
   <div class="da-sec" id="recentSec" style="display:none">최근 연 문서</div>
   <div class="da-list" id="docList"></div>
-  <!-- accept를 쓰지 않는다: 이미지 형식이 하나라도 들어가면 안드로이드가 '작업 선택'에 카메라를 끼워 넣는다(유성 08-12).
-       어차피 파일 종류는 매직바이트로 판별하므로 필터가 없어도 안전하고, 다운로드 폴더 전체가 최신순으로 보인다. -->
-  <input type="file" id="fileInput" multiple style="display:none">
+  <!-- accept 규칙(유성 08-12 실측 2회):
+       · 이미지 MIME이 하나라도 있으면 '작업 선택'에 카메라가 뜬다
+       · accept를 아예 빼면 */* 가 되어 카메라 + 캠코더까지 뜬다
+       ⇒ 이미지·영상·소리 형식을 하나도 넣지 않은 문서 전용 목록으로 고정한다(카메라 후보가 사라져 파일 앱으로 직행).
+       한글 파일이 형식 없이(octet-stream) 오는 경우가 많아 그것까지 포함한다. -->
+  <input type="file" id="fileInput" multiple style="display:none"
+    accept="application/pdf,application/x-hwp,application/haansofthwp,application/vnd.hancom.hwp,application/vnd.hancom.hwpx,application/hwp,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.ms-excel.sheet.macroenabled.12,application/zip,application/octet-stream,text/csv,text/plain,.hwp,.hwpx,.pdf,.xlsx,.xls,.xlsm,.csv">
 </section>
 
 <!-- ── 뷰어 ── -->
