@@ -746,14 +746,13 @@ function renderInstall() {
       <div class="da-head"><div><span class="da-brand">생각공작소</span><div class="da-title">문서 리더기 설치</div></div></div>
       <div class="insWrap">
         <p class="insLead">앱을 설치하면 <b>메일·파일함에서 문서를 누를 때</b> 바로 열려요.
-          설치 없이 이 화면 그대로 써도 됩니다(그때는 공유 버튼으로 열어요).</p>
+          설치 없이 이 화면 그대로 써도 됩니다.</p>
 
         <div class="insStep"><span class="n">1</span><div><b>아래 [앱 받기]를 누르세요</b><br>
           <span class="sub">받은 파일은 알림이나 다운로드 폴더에 있어요</span></div></div>
 
         <div class="insStep"><span class="n">2</span><div><b>갤럭시는 한 번만 설정이 필요해요</b><br>
-          <span class="sub">설치가 막히면 → 설정 → 보안 및 개인정보 보호 → <b>보안 위험 자동 차단</b> 끄기</span><br>
-          <span class="sub">설치를 마치면 <b>다시 켜 두세요</b>(평소엔 켜 두는 게 안전합니다)</span></div></div>
+          <span class="sub">설치가 막히면 → 설정 → 보안 및 개인정보 보호 → <b>보안 위험 자동 차단</b> 끄기</span></div></div>
 
         <div class="insStep"><span class="n">3</span><div><b>받은 파일을 눌러 설치하세요</b><br>
           <span class="sub">설치 뒤 문서를 누르면 목록에 <b>문서 리더기</b>가 보여요 — <b>‘한 번만’</b>을 누르시길 권합니다</span></div></div>

@@ -13,6 +13,16 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-180.png">
 <link rel="stylesheet" href="app.css">
+<script>
+  // 카톡 인앱 브라우저에서 열리면 기본 브라우저로 즉시 전환 (선례=saenggak/kakao-escape.js, 유성 2026-07-04 확정).
+  // 문서리더에선 특히 중요하다: 카톡 인앱은 앱 파일(apk) 다운로드를 자체 처리해 '어디 저장됐는지 모르는' 상태가 된다(유성 08-12 실사용).
+  // 스킴이 실패해도 페이지는 그대로 동작한다(무해).
+  (function () {
+    if (/KAKAOTALK/i.test(navigator.userAgent)) {
+      location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+    }
+  })();
+</script>
 </head>
 <body>
 
