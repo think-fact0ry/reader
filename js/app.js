@@ -755,7 +755,7 @@ function renderInstall() {
           <span class="sub">① 앱을 열고 [파일 열기] — 최근 받은 파일이 맨 위에 있어요</span><br>
           <span class="sub">② 메일·카톡에서 첨부의 <b>공유</b> → 문서 리더기</span></div></div>
 
-        <button class="da-open" id="insAdd" style="margin:18px 16px 6px">홈 화면에 추가</button>
+        <button class="da-open" id="insAdd" style="width:calc(100% - 32px);margin:18px 16px 6px">홈 화면에 추가</button>
         <button class="fbtn" id="insWeb" style="width:calc(100% - 32px);margin:10px 16px;padding:13px">그냥 이대로 쓰기</button>
         <p class="insNote" id="insManual" style="display:none">Chrome 오른쪽 위 <b>⋮</b> 메뉴를 열고 <b>홈 화면에 추가</b>를 눌러 주세요.
           (삼성 인터넷은 아래쪽 <b>≡</b> → <b>현재 페이지 추가</b>)</p>
