@@ -736,36 +736,36 @@ async function openFromNative() {
   renderList();
 }
 
-// ───────────────────── 앱 설치 안내 (?install=1)
-// 링크 하나로 끝나게 만드는 화면 — 사람마다 말로 안내하지 않기 위해서다.
-// (스토어에 올리기 전까지의 다리. 스토어 배포가 확정되면 이 화면은 스토어 링크만 남기고 단순해진다)
-// 우리 사이트에 직접 둔다 — GitHub Releases는 302 두 번에 긴 서명 URL이라 인앱 브라우저가 헤매기 쉽다.
-// Pages도 Content-Type을 application/vnd.android.package-archive로 준다(08-12 실측) = 설치 프롬프트가 뜨는 조건 충족.
-const APK_URL = 'app.apk';
+// ───────────────────── 설치 안내 (?install=1) — 링크 하나로 끝나게 만드는 화면
+// 유성 결정(2026-08-12): APK 배포는 접는다. 설치 파일을 받게 하는 방식은 삼성 차단·저장 위치 혼란 때문에
+// 사람마다 안내가 필요해 조직 배포에 못 쓴다(정본 §1-h-2). 홈 화면 추가는 차단이 없어 링크 하나로 끝난다.
+// APK 자산(app.apk)·네이티브 수신 코드는 지우지 않고 남겨 둔다 — 스토어 배포를 결정하면 그대로 재개한다.
 function renderInstall() {
   document.body.innerHTML = `
     <section class="view on" style="overflow:auto">
-      <div class="da-head"><div><span class="da-brand">생각공작소</span><div class="da-title">문서 리더기 설치</div></div></div>
+      <div class="da-head"><div><span class="da-brand">생각공작소</span><div class="da-title">문서 리더기<br>설치하기</div></div></div>
       <div class="insWrap">
-        <p class="insLead">앱을 설치하면 <b>메일·파일함에서 문서를 누를 때</b> 바로 열려요.
-          설치 없이 이 화면 그대로 써도 됩니다.</p>
+        <p class="insLead">홈 화면에 두고 쓰면 <b>메일·카톡에서 받은 서류</b>를 광고 없이 바로 볼 수 있어요.
+          한글·엑셀·PDF 모두 열리고, 엑셀은 칸을 고쳐 보낼 수도 있어요.</p>
 
-        <div class="insStep"><span class="n">1</span><div><b>아래 [앱 받기]를 누르세요</b><br>
-          <span class="sub">받은 파일은 알림이나 다운로드 폴더에 있어요</span></div></div>
+        <div class="insStep"><span class="n">1</span><div><b>아래 [홈 화면에 추가]를 누르세요</b><br>
+          <span class="sub">버튼이 안 뜨면 오른쪽 위 <b>⋮</b> → <b>홈 화면에 추가</b></span></div></div>
 
-        <div class="insStep"><span class="n">2</span><div><b>갤럭시는 한 번만 설정이 필요해요</b><br>
-          <span class="sub">설치가 막히면 → 설정 → 보안 및 개인정보 보호 → <b>보안 위험 자동 차단</b> 끄기</span></div></div>
+        <div class="insStep"><span class="n">2</span><div><b>서류는 두 가지 방법으로 열어요</b><br>
+          <span class="sub">① 앱을 열고 [파일 열기] — 최근 받은 파일이 맨 위에 있어요</span><br>
+          <span class="sub">② 메일·카톡에서 첨부의 <b>공유</b> → 문서 리더기</span></div></div>
 
-        <div class="insStep"><span class="n">3</span><div><b>받은 파일을 눌러 설치하세요</b><br>
-          <span class="sub">설치 뒤 문서를 누르면 목록에 <b>문서 리더기</b>가 보여요 — <b>‘한 번만’</b>을 누르시길 권합니다</span></div></div>
-
-        <a class="da-open" style="display:block;text-align:center;text-decoration:none;margin:18px 16px 6px" href="${APK_URL}">앱 받기</a>
-        <button class="fbtn" id="insWeb" style="width:calc(100% - 32px);margin:10px 16px;padding:13px">설치하지 않고 웹으로 쓰기</button>
-        <p class="insNote">앱을 쓰기 시작하면 홈 화면에 만들어 둔 바로가기는 지워 주세요.
-          안드로이드가 둘의 저장 공간을 따로 관리해서 <b>문서함 목록이 서로 달라 보입니다</b>.</p>
+        <button class="da-open" id="insAdd" style="margin:18px 16px 6px">홈 화면에 추가</button>
+        <button class="fbtn" id="insWeb" style="width:calc(100% - 32px);margin:10px 16px;padding:13px">그냥 이대로 쓰기</button>
+        <p class="insNote" id="insManual" style="display:none">Chrome 오른쪽 위 <b>⋮</b> 메뉴를 열고 <b>홈 화면에 추가</b>를 눌러 주세요.
+          (삼성 인터넷은 아래쪽 <b>≡</b> → <b>현재 페이지 추가</b>)</p>
       </div>
     </section>`;
   $('insWeb').onclick = () => location.href = './';
+  $('insAdd').onclick = async () => {
+    if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; return; }
+    $('insManual').style.display = ''; // 브라우저가 설치 버튼을 안 내주는 경우(이미 설치·미충족) 수동 안내
+  };
 }
 
 // ───────────────────── 자가진단 (?diag=1) — 실기기에서 무엇이 되고 안 되는지 앱이 스스로 보고
@@ -851,16 +851,20 @@ try { navigator.storage && navigator.storage.persist && navigator.storage.persis
 const ua = navigator.userAgent;
 const isInApp = /KAKAOTALK|NAVER\(inapp|inapp;|FBAV|Instagram|Line\//i.test(ua);
 const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-if (isInApp) {
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+
+// ?install·?diag 화면은 body를 통째로 갈아끼우므로 문서함 요소가 없다 — 있을 때만 붙인다
+if ($('inappBanner') && isInApp) {
   $('inappBanner').style.display = '';
   $('openChrome').addEventListener('click', () => {
     location.href = 'intent://think-fact0ry.github.io/reader/#Intent;scheme=https;package=com.android.chrome;end';
   });
 }
-let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
-if (!isStandalone && !isInApp) $('installBar').classList.add('on');
-$('btnInstall').addEventListener('click', async () => {
-  if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; $('installBar').classList.remove('on'); }
-  else alert('Chrome 우상단 ⋮ 메뉴 → "홈 화면에 추가"를 눌러 주세요.');
-});
+if ($('installBar')) {
+  if (!isStandalone && !isInApp) $('installBar').classList.add('on');
+  $('btnInstall').addEventListener('click', async () => {
+    if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; $('installBar').classList.remove('on'); }
+    else alert('Chrome 우상단 ⋮ 메뉴 → "홈 화면에 추가"를 눌러 주세요.');
+  });
+}
