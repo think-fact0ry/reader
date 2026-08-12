@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <title>문서리더</title>
 <meta name="description" content="한글(.hwp/.hwpx)·엑셀·PDF 서류를 광고 없이 읽어요">
 <meta property="og:title" content="문서리더">
@@ -24,7 +24,6 @@
     <button id="openChrome">Chrome으로 열기</button>
   </div>
   <button class="da-open" id="btnOpen">파일 열기</button>
-  <div class="da-hint">메일·카톡에서 공유 → 문서리더로 바로 열 수 있어요</div>
   <div class="installbar" id="installBar"><span>홈 화면에 설치하면 공유로 바로 열 수 있어요</span><button id="btnInstall">설치</button></div>
   <div class="da-sec" id="recentSec" style="display:none">최근 연 문서</div>
   <div class="da-list" id="docList"></div>
@@ -39,13 +38,15 @@
       <svg class="ic" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </button>
     <span class="fn" id="vTitle"></span>
+    <button class="savebtn" id="btnSave" style="display:none">저장</button>
     <button class="kb" id="btnMenu" aria-label="메뉴">⋮</button>
   </div>
-  <div class="vseg-wrap" id="segWrap" style="display:none">
-    <div class="vseg"><button id="segRead">읽기</button><button id="segOrig">원본</button></div>
-  </div>
-  <div id="warnReflow" class="warnbar" style="display:none">원본(한글 파일)과 표·배치가 다르게 보일 수 있어요. 제출용 확인은 원본으로 해 주세요.</div>
   <div class="vbody" id="vBody"></div>
+  <div class="editbar" id="editBar">
+    <span class="eref" id="editRef">A1</span>
+    <input id="editInput" type="text" autocomplete="off" enterkeyhint="done">
+    <button class="eok" id="editOk">확인</button>
+  </div>
   <div class="vfoot" id="vFoot"></div>
 </section>
 
@@ -63,6 +64,15 @@
   <button class="bi" id="miPrint">출력</button>
   <button class="bi danger" id="miRemove">목록에서 지우기</button>
   <button class="close" id="miClose">닫기</button>
+</div>
+
+<!-- ── 수정본 저장 시트 ── -->
+<div class="bsheet" id="saveSheet">
+  <div class="bhead" id="saveHead">고친 내용을 어떻게 할까요?</div>
+  <button class="bi" id="svShare">메일·카톡으로 보내기</button>
+  <button class="bi" id="svDown">폰에 저장하기</button>
+  <button class="bi danger" id="svReset">고친 내용 되돌리기</button>
+  <button class="close" id="svClose">닫기</button>
 </div>
 
 <!-- ── 암호 입력 ── -->

@@ -143,8 +143,8 @@ async function openDoc(id, push) {
   $('listView').classList.remove('on');
   $('viewerView').classList.add('on');
   $('vTitle').textContent = doc.name;
-  $('segWrap').style.display = 'none';
-  $('warnReflow').style.display = 'none';
+  $('btnSave').style.display = 'none';
+  $('editBar').classList.remove('on');
   $('vBody').innerHTML = '';
   $('vFoot').innerHTML = '';
 
@@ -171,6 +171,10 @@ function cleanupViewer() {
   try { cur.cleanup && cur.cleanup(); } catch {}
   if (cur.worker) { try { cur.worker.terminate(); } catch {} }
   cur = null;
+  editTarget = null;
+  pendingSave = null;
+  $('editBar').classList.remove('on');
+  $('btnSave').style.display = 'none';
   loadingHide();
 }
 
@@ -237,14 +241,12 @@ function attachPinch(scroller, getTarget, opts = {}) {
   return { getZ: () => z, setZ: (v) => { z = v; const t = getTarget(); if (t) t.style.zoom = v; } };
 }
 
-// ───────────────────── 한글 뷰어 (rhwp — [읽기|원본] 세그)
+// ───────────────────── 한글 뷰어 (rhwp — 원본 페이지 렌더만, 유성 확정 2026-08-12)
 async function viewHwp(doc, blob) {
   const worker = new Worker(new URL('./hwp.worker.js', import.meta.url), { type: 'module' });
   cur.worker = worker;
   const bytes = await blob.arrayBuffer();
   const svgCache = new Map();
-  let pages = 0, pw = 794, ph = 1123, reflowBlocks = null;
-  let mode = (await prefGet('hwpMode')) || 'read';
 
   const ready = await new Promise((res, rej) => {
     worker.onerror = (e) => rej(new Error(e.message || 'worker error')); // 조용한 행 금지
@@ -256,96 +258,42 @@ async function viewHwp(doc, blob) {
     };
     worker.postMessage({ cmd: 'open', bytes }, [bytes]);
   });
-  pages = ready.pages; pw = ready.w; ph = ready.h;
+  const pages = ready.pages, pw = ready.w, ph = ready.h;
   if (ready.svg0) svgCache.set(0, ready.svg0);
 
-  // 이후 메시지(페이지·리플로우) 핸들러
   const pageWaiters = new Map();
   worker.onmessage = (e) => {
     const m = e.data;
     if (m.type === 'page') { svgCache.set(m.i, m.svg); const w = pageWaiters.get(m.i); if (w) { w(m.svg); pageWaiters.delete(m.i); } }
-    else if (m.type === 'reflow') { reflowBlocks = m.blocks; if (mode === 'read') renderRead(); }
     else if (m.type === 'progress') loadingProg(m.p, m.msg);
-    else if (m.type === 'error') { loadingHide(); if (m.where === 'reflow') { reflowBlocks = []; if (mode === 'read') renderRead(); } }
   };
   const getPage = (i) => svgCache.has(i) ? Promise.resolve(svgCache.get(i)) :
     new Promise((res) => { pageWaiters.set(i, res); worker.postMessage({ cmd: 'page', i }); });
 
-  $('segWrap').style.display = '';
-  const segR = $('segRead'), segO = $('segOrig');
-  const setSeg = () => { segR.classList.toggle('on', mode === 'read'); segO.classList.toggle('on', mode === 'orig'); };
-  segR.onclick = () => { if (mode !== 'read') { mode = 'read'; prefSet('hwpMode', 'read'); setSeg(); renderRead(); } };
-  segO.onclick = () => { if (mode !== 'orig') { mode = 'orig'; prefSet('hwpMode', 'orig'); setSeg(); renderOrig(); } };
-  setSeg();
-
-  let pinch = null, fontScale = (await prefGet('fontScale')) || 1;
-
-  function renderOrig() {
-    $('warnReflow').style.display = 'none';
-    const vb = $('vBody'); vb.className = 'vbody'; vb.innerHTML = '';
-    const cont = document.createElement('div'); cont.className = 'pages'; vb.appendChild(cont);
-    const base = Math.min(vb.clientWidth - 28, 900);
-    const phs = [];
-    for (let i = 0; i < pages; i++) {
-      const d = document.createElement('div');
-      d.className = 'pageph'; d.dataset.i = i;
-      d.style.width = base + 'px'; d.style.aspectRatio = `${pw}/${ph}`;
-      cont.appendChild(d); phs.push(d);
-    }
-    let curPage = 1;
-    const foot = $('vFoot');
-    foot.innerHTML = `<span class="hint">두 손가락으로 확대</span><span class="pg tnum" id="pgInd">1 / ${pages}쪽</span>`;
-    const io = new IntersectionObserver((ents) => {
-      for (const en of ents) {
-        const i = +en.target.dataset.i;
-        if (en.isIntersecting) {
-          if (!en.target.dataset.done) { en.target.dataset.done = 1; getPage(i).then(svg => { en.target.innerHTML = svg; }); }
-          if (en.intersectionRatio > 0.4) { curPage = i + 1; const el = $('pgInd'); if (el) el.textContent = `${curPage} / ${pages}쪽`; }
-        }
+  const vb = $('vBody'); vb.className = 'vbody'; vb.innerHTML = '';
+  const cont = document.createElement('div'); cont.className = 'pages'; vb.appendChild(cont);
+  const base = Math.min(vb.clientWidth - 28, 900);
+  const phs = [];
+  for (let i = 0; i < pages; i++) {
+    const d = document.createElement('div');
+    d.className = 'pageph'; d.dataset.i = i;
+    d.style.width = base + 'px'; d.style.aspectRatio = `${pw}/${ph}`;
+    cont.appendChild(d); phs.push(d);
+  }
+  $('vFoot').innerHTML = `<span class="hint">두 손가락으로 확대</span><span class="pg tnum" id="pgInd">1 / ${pages}쪽</span>`;
+  const io = new IntersectionObserver((ents) => {
+    for (const en of ents) {
+      const i = +en.target.dataset.i;
+      if (en.isIntersecting) {
+        if (!en.target.dataset.done) { en.target.dataset.done = 1; getPage(i).then(svg => { en.target.innerHTML = svg; }); }
+        if (en.intersectionRatio > 0.4) { const el = $('pgInd'); if (el) el.textContent = `${i + 1} / ${pages}쪽`; }
       }
-    }, { root: vb, rootMargin: '600px 0px', threshold: [0, 0.45] });
-    phs.forEach(d => io.observe(d));
-    pinch = attachPinch(vb, () => cont, { min: 0.6, max: 3.5 });
-    cur.cleanup = () => io.disconnect();
-    loadingHide();
-  }
-
-  function renderRead() {
-    $('warnReflow').style.display = '';
-    const vb = $('vBody'); vb.className = 'vbody white'; vb.innerHTML = '';
-    if (reflowBlocks === null) { loadingShow('읽기 모드로 바꾸는 중'); worker.postMessage({ cmd: 'reflow' }); return; }
-    const art = document.createElement('article'); art.className = 'reflow';
-    art.style.fontSize = (16 * fontScale) + 'px';
-    if (!reflowBlocks.length) {
-      art.innerHTML = `<p style="color:var(--g500)">읽기 모드로 바꿀 내용을 찾지 못했어요. 상단 [원본]으로 봐 주세요.</p>`;
-    } else {
-      art.innerHTML = reflowBlocks.map(b =>
-        b.t === 'p' ? `<p>${esc(b.text)}</p>` : `<div class="rtbl">${sanitizeHtml(b.html)}</div>`
-      ).join('');
     }
-    vb.appendChild(art);
-    const foot = $('vFoot');
-    foot.innerHTML = `<button class="fbtn" id="fMinus">가−</button><button class="fbtn" id="fPlus">가+</button>`;
-    $('fMinus').onclick = () => { fontScale = Math.max(0.8, +(fontScale - 0.1).toFixed(2)); art.style.fontSize = (16 * fontScale) + 'px'; prefSet('fontScale', fontScale); };
-    $('fPlus').onclick = () => { fontScale = Math.min(1.8, +(fontScale + 0.1).toFixed(2)); art.style.fontSize = (16 * fontScale) + 'px'; prefSet('fontScale', fontScale); };
-    cur.cleanup = null;
-    loadingHide();
-  }
-
-  if (mode === 'read') renderRead(); else renderOrig();
-}
-
-// 워커가 만든 표 HTML을 화면에 넣기 전 무해화
-function sanitizeHtml(html) {
-  const tpl = document.createElement('template');
-  tpl.innerHTML = html;
-  tpl.content.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(n => n.remove());
-  tpl.content.querySelectorAll('*').forEach(n => {
-    for (const a of [...n.attributes]) {
-      if (/^on/i.test(a.name) || (a.name === 'href' && /^javascript:/i.test(a.value)) || a.name === 'srcdoc') n.removeAttribute(a.name);
-    }
-  });
-  return tpl.innerHTML;
+  }, { root: vb, rootMargin: '600px 0px', threshold: [0, 0.45] });
+  phs.forEach(d => io.observe(d));
+  attachPinch(vb, () => cont, { min: 0.6, max: 3.5 });
+  cur.cleanup = () => io.disconnect();
+  loadingHide();
 }
 
 // ───────────────────── 엑셀 뷰어 (틀 고정 + 핀치)
@@ -356,12 +304,12 @@ async function viewSheet(doc, blob) {
     const bytes = await blob.arrayBuffer();
     worker.postMessage({ cmd: 'open', bytes, ext: doc.ext, password }, [bytes]);
   };
-  const model = await new Promise((res, rej) => {
+  const ready = await new Promise((res, rej) => {
     worker.onerror = (e) => rej(new Error(e.message || 'worker error')); // 조용한 행 금지
     worker.onmessage = async (e) => {
       const m = e.data;
       if (m.type === 'progress') loadingProg(m.p, m.msg);
-      else if (m.type === 'ready') res(m.model);
+      else if (m.type === 'ready') res(m);
       else if (m.type === 'needpassword') {
         const pw = await askPassword('문서를 열려면 암호를 입력해 주세요.');
         if (pw === null) { cleanupViewer(); showList(true); rej(new Error('cancel')); return; }
@@ -374,13 +322,20 @@ async function viewSheet(doc, blob) {
     };
     send();
   }).catch(err => { if (String(err.message) !== 'cancel') throw err; return null; });
-  if (!model) return;
+  if (!ready) return;
+  const model = ready.model;
+  const editable = ready.editable !== false;
 
   const vb = $('vBody'); vb.className = 'vbody white';
-  let si = 0, pinch = null;
+  let si = 0, picked = null; // picked = 편집 중인 td
+  const edits = new Map();   // key `시트|r|c` → { sheet, r, c, value }
+  cur.edits = edits;
+  cur.saveSheet = () => saveEditedSheet(doc, worker, edits);
+
   function renderSheet() {
     const sh = model.sheets[si];
     vb.innerHTML = '';
+    picked = null;
     const wrap = document.createElement('div'); wrap.className = 'xlwrap'; vb.appendChild(wrap);
     if (!sh || !sh.rows.length) { wrap.innerHTML = '<div class="errcard">빈 시트예요</div>'; return; }
     // 병합 스킵맵
@@ -402,24 +357,119 @@ async function viewSheet(doc, blob) {
         const [text, sidx] = cell === 0 ? ['', 0] : cell;
         const st = model.styles[sidx] || '';
         const mg = span.get(key);
-        const cls = [(r < fr ? 'stik-t' : ''), (c < fc ? 'stik-l' : ''), (r < fr ? 'hd' : '')].filter(Boolean).join(' ');
-        html += `<td${cls ? ` class="${cls}"` : ''}${st ? ` style="${st}"` : ''}${mg ? ` rowspan="${mg.rs}" colspan="${mg.cs}"` : ''}>${esc(text)}</td>`;
+        const cls = [(r < fr ? 'stik-t' : ''), (c < fc ? 'stik-l' : ''), (r < fr ? 'hd' : ''),
+          (edits.has(`${sh.name}|${r + 1}|${c + 1}`) ? 'edited' : '')].filter(Boolean).join(' ');
+        html += `<td data-r="${r + 1}" data-c="${c + 1}"${cls ? ` class="${cls}"` : ''}${st ? ` style="${st}"` : ''}${mg ? ` rowspan="${mg.rs}" colspan="${mg.cs}"` : ''}>${esc(text)}</td>`;
       }
       html += '</tr>';
     }
     html += '</table>';
     if (sh.truncated) html += `<div class="truncnote">표가 커서 ${Math.min(sh.totalR, 99999)}행 중 ${sh.rows.length}행까지 보여드려요 · 전체는 PC에서 확인해 주세요</div>`;
     wrap.innerHTML = html;
-    pinch = attachPinch(wrap, () => wrap.querySelector('.xltab'), { min: 0.5, max: 3 });
+    attachPinch(wrap, () => wrap.querySelector('.xltab'), { min: 0.5, max: 3 });
+
+    // 셀 탭 → 편집 (스크롤·핀치와 구분: 거의 안 움직인 짧은 탭만)
+    if (editable) {
+      let dn = null;
+      wrap.addEventListener('pointerdown', (e) => { dn = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+      wrap.addEventListener('pointerup', (e) => {
+        if (!dn) return;
+        const moved = Math.hypot(e.clientX - dn.x, e.clientY - dn.y);
+        const quick = Date.now() - dn.t < 500;
+        dn = null;
+        if (moved > 8 || !quick) return;
+        const td = e.target.closest('td');
+        if (td) pickCell(td);
+      });
+    }
+    renderFoot();
+  }
+
+  function renderFoot() {
     const foot = $('vFoot');
     foot.innerHTML = `<div class="sheets">${model.sheets.map((s, i) =>
       `<button class="shtab${i === si ? ' on' : ''}" data-i="${i}">${esc(s.name)}</button>`).join('')}</div>
-      <span class="hint">두 손가락으로 확대</span>`;
-    foot.querySelectorAll('.shtab').forEach(b => b.onclick = () => { si = +b.dataset.i; renderSheet(); });
+      <span class="hint">${editable ? '칸을 눌러 고칠 수 있어요' : '두 손가락으로 확대'}</span>`;
+    foot.querySelectorAll('.shtab').forEach(b => b.onclick = () => { si = +b.dataset.i; closeEdit(); renderSheet(); });
   }
+
+  function pickCell(td) {
+    if (picked) picked.classList.remove('picked');
+    picked = td; td.classList.add('picked');
+    const sh = model.sheets[si];
+    const r = +td.dataset.r, c = +td.dataset.c;
+    $('editRef').textContent = colName(c) + r;
+    $('editInput').value = td.textContent;
+    $('editBar').classList.add('on');
+    $('editInput').focus();
+    $('editInput').select();
+    editTarget = { sheet: sh.name, r, c, td };
+  }
+  function closeEdit() {
+    $('editBar').classList.remove('on');
+    if (picked) picked.classList.remove('picked');
+    picked = null; editTarget = null;
+  }
+  function commitEdit() {
+    if (!editTarget) return;
+    const v = $('editInput').value;
+    const { sheet, r, c, td } = editTarget;
+    const sh = model.sheets.find(s => s.name === sheet);
+    edits.set(`${sheet}|${r}|${c}`, { sheet, r, c, value: v });
+    // 화면·모델 즉시 반영(다음 렌더에도 유지)
+    td.textContent = v;
+    td.classList.add('edited');
+    if (sh && sh.rows[r - 1]) {
+      const prev = sh.rows[r - 1][c - 1];
+      const sidx = prev === 0 || !prev ? 0 : prev[1];
+      sh.rows[r - 1][c - 1] = v ? [v, sidx] : 0;
+    }
+    $('btnSave').style.display = '';
+    closeEdit();
+  }
+  cur.resetEdits = () => {
+    edits.clear();
+    $('btnSave').style.display = 'none';
+    toast('고친 내용을 되돌렸어요 · 원본 그대로예요');
+    openDoc(doc.id, false); // 원본에서 다시 읽어 화면 복구
+  };
+
+  $('editOk').onclick = commitEdit;
+  $('editInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(); } };
+
   renderSheet();
   loadingHide();
 }
+let editTarget = null;
+function colName(n) { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - 1 - m) / 26; } return s; }
+
+// 고친 엑셀 저장 — 워커가 zip 안 해당 시트 XML만 고쳐 되돌려준다(원본 서식·유효성·차트 보존)
+async function saveEditedSheet(doc, worker, edits) {
+  if (!edits.size) { toast('아직 고친 칸이 없어요'); return; }
+  loadingShow('고친 내용을 저장하는 중');
+  const out = await new Promise((res, rej) => {
+    const prev = worker.onmessage;
+    worker.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === 'saved') { worker.onmessage = prev; res(m); }
+      else if (m.type === 'error') { worker.onmessage = prev; rej(new Error(m.msg)); }
+      else if (m.type === 'progress') loadingProg(m.p, m.msg);
+    };
+    worker.postMessage({ cmd: 'save', edits: [...edits.values()] });
+  }).catch(err => { loadingHide(); showErrorToast(err); return null; });
+  loadingHide();
+  if (!out) return;
+  const base = doc.name.replace(/\.(xlsx|xlsm|xls)$/i, '');
+  const name = `${base}_수정.xlsx`;
+  const blob = new Blob([out.bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  pendingSave = { blob, name, encrypted: out.encrypted };
+  $('saveHead').textContent = out.encrypted
+    ? '암호는 원래대로 걸어서 저장했어요'
+    : `고친 칸 ${edits.size}개를 새 파일로 만들었어요`;
+  openSheet('saveSheet');
+}
+let pendingSave = null;
+function showErrorToast(err) { toast('저장하지 못했어요 · ' + String(err.message || err).slice(0, 60)); }
 
 // ───────────────────── PDF 뷰어 (pdf.js — pdfpng 벤더 승계)
 async function viewPdf(doc, blob) {
@@ -527,30 +577,54 @@ function askPassword(msg) {
   });
 }
 
-// ───────────────────── ⋮ 메뉴 (공유·출력·목록에서 지우기)
-$('btnMenu').addEventListener('click', () => { $('sheetBg').classList.add('on'); $('menuSheet').classList.add('on'); });
-const closeMenu = () => { $('sheetBg').classList.remove('on'); $('menuSheet').classList.remove('on'); };
+// ───────────────────── 바텀시트 (⋮ 메뉴 · 수정본 저장)
+function openSheet(id) { $('sheetBg').classList.add('on'); $(id).classList.add('on'); }
+const closeMenu = () => { $('sheetBg').classList.remove('on'); $('menuSheet').classList.remove('on'); $('saveSheet').classList.remove('on'); };
+$('btnMenu').addEventListener('click', () => openSheet('menuSheet'));
 $('sheetBg').addEventListener('click', closeMenu);
 $('miClose').addEventListener('click', closeMenu);
+$('svClose').addEventListener('click', closeMenu);
 $('miShare').addEventListener('click', async () => {
   closeMenu();
   if (!cur) return;
-  const file = new File([cur.blob], cur.doc.name, { type: cur.doc.mime || 'application/octet-stream' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); } catch {}
-  } else {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(cur.blob); a.download = cur.doc.name; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  }
+  await shareOrDownload(cur.blob, cur.doc.name, cur.doc.mime || 'application/octet-stream', true);
 });
 $('miPrint').addEventListener('click', async () => {
   closeMenu();
   if (!cur) return;
-  if (cur.kind === 'hwp' && $('warnReflow').style.display !== 'none') {
-    if (!confirm('읽기 모드는 원본과 배치가 달라요. 제출용이면 원본 모드로 출력해 주세요.\n이대로 출력할까요?')) return;
-  }
   window.print(); // 페이지형은 화면에 렌더된 쪽까지 출력 — 긴 문서는 스크롤로 내려 렌더 후 출력
+});
+
+// 안드로이드: 공유 시트(메일·카톡 회신) 우선, 없으면 다운로드 폴더로 저장
+async function shareOrDownload(blob, name, mime, preferShare) {
+  const file = new File([blob], name, { type: mime });
+  if (preferShare && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); return 'share'; }
+    catch (e) { if (e && e.name === 'AbortError') return 'cancel'; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return 'download';
+}
+
+// 엑셀 수정본 저장 흐름
+$('btnSave').addEventListener('click', () => { if (cur && cur.saveSheet) cur.saveSheet(); });
+$('svShare').addEventListener('click', async () => {
+  closeMenu();
+  if (!pendingSave) return;
+  const how = await shareOrDownload(pendingSave.blob, pendingSave.name, pendingSave.blob.type, true);
+  if (how === 'download') toast(`보내기가 안 돼서 폰에 저장했어요 · ${pendingSave.name}`);
+});
+$('svDown').addEventListener('click', async () => {
+  closeMenu();
+  if (!pendingSave) return;
+  await shareOrDownload(pendingSave.blob, pendingSave.name, pendingSave.blob.type, false);
+  toast(`다운로드 폴더에 저장했어요 · ${pendingSave.name}`);
+});
+$('svReset').addEventListener('click', () => {
+  closeMenu();
+  if (cur && cur.resetEdits) cur.resetEdits();
 });
 $('miRemove').addEventListener('click', async () => {
   closeMenu();

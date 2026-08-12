@@ -1,6 +1,8 @@
-// 엑셀 파서 워커 — ExcelJS(서식) + SheetJS(.xls 폴백·SSF 숫자서식) + officecrypto(암호 복호화)
-// 프로토콜: open{bytes,ext,password?} → ready{model} / password 필요 → needpassword / 오류 → error
-importScripts('../vendor/exceljs.min.js', '../vendor/xlsx.full.min.js', '../vendor/officecrypto.browser.js');
+// 엑셀 파서 워커 — ExcelJS(서식) + SheetJS(.xls 폴백·SSF 숫자서식) + officecrypto(암호) + 외과적 저장
+// 프로토콜: open{bytes,ext,password?} → ready{model} / needpassword / badpassword / error
+//           save{edits} → saved{bytes,encrypted}
+importScripts('../vendor/exceljs.min.js', '../vendor/xlsx.full.min.js', '../vendor/officecrypto.browser.js',
+  '../vendor/fflate.min.js', './xlsxpatch.js');
 
 const post = (m) => self.postMessage(m);
 const prog = (p, msg) => post({ type: 'progress', p, msg });
@@ -129,31 +131,53 @@ function modelFromSheetJS(u8) {
   return { kind: 'grid', sheets, styles: ['', 'text-align:right;'] };
 }
 
+// 저장용 보관: 열 때 쓴 (복호화된) 원본 zip 바이트와 암호
+let srcZip = null, srcPassword = null, srcEditable = false;
+
 self.onmessage = async (e) => {
   const m = e.data;
-  if (m.cmd !== 'open') return;
   try {
-    let u8 = new Uint8Array(m.bytes);
-    prog(15, '문서를 여는 중이에요');
-    if (isCFB(u8)) {
-      let enc = false;
-      try { enc = OfficeCrypto.isEncrypted(u8); } catch {}
-      if (enc) {
-        if (!m.password) { post({ type: 'needpassword' }); return; }
-        prog(30, '암호를 푸는 중');
-        try { u8 = new Uint8Array(await OfficeCrypto.decrypt(u8, { password: m.password })); }
-        catch { post({ type: 'badpassword' }); return; }
-      } else {
-        // 구형 .xls(BIFF) — SheetJS 폴백(서식 없음)
-        prog(45, '표를 그리는 중');
-        post({ type: 'ready', model: modelFromSheetJS(u8) });
-        return;
+    if (m.cmd === 'open') {
+      let u8 = new Uint8Array(m.bytes);
+      srcZip = null; srcPassword = null; srcEditable = false;
+      prog(15, '문서를 여는 중이에요');
+      if (isCFB(u8)) {
+        let enc = false;
+        try { enc = OfficeCrypto.isEncrypted(u8); } catch {}
+        if (enc) {
+          if (!m.password) { post({ type: 'needpassword' }); return; }
+          prog(30, '암호를 푸는 중');
+          try { u8 = new Uint8Array(await OfficeCrypto.decrypt(u8, { password: m.password })); }
+          catch { post({ type: 'badpassword' }); return; }
+          srcPassword = m.password;
+        } else {
+          // 구형 .xls(BIFF) — SheetJS 폴백(서식 없음·수정 불가: 형식이 zip이 아니라 외과 패치가 안 됨)
+          prog(45, '표를 그리는 중');
+          post({ type: 'ready', model: modelFromSheetJS(u8), editable: false });
+          return;
+        }
       }
+      if (!isZIP(u8)) { post({ type: 'error', msg: '엑셀 파일 형식이 아니에요' }); return; }
+      prog(45, '문서를 여는 중이에요');
+      const model = await modelFromExcelJS(u8);
+      srcZip = u8; srcEditable = true;
+      post({ type: 'ready', model, editable: true });
+      return;
     }
-    if (!isZIP(u8)) { post({ type: 'error', msg: '엑셀 파일 형식이 아니에요' }); return; }
-    prog(45, '문서를 여는 중이에요');
-    const model = await modelFromExcelJS(u8);
-    post({ type: 'ready', model });
+    if (m.cmd === 'save') {
+      if (!srcEditable || !srcZip) { post({ type: 'error', msg: '이 형식은 고쳐서 저장할 수 없어요' }); return; }
+      prog(30, '고친 내용을 넣는 중');
+      let out = XlsxPatch.patch(srcZip, m.edits);
+      let encrypted = false;
+      if (srcPassword) { // 원래 암호가 걸려 있었으면 같은 암호로 다시 걸어 준다(제출 조건 유지)
+        prog(70, '암호를 다시 거는 중');
+        out = new Uint8Array(await OfficeCrypto.encrypt(out, { password: srcPassword }));
+        encrypted = true;
+      }
+      const buf = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
+      post({ type: 'saved', bytes: buf, encrypted }, [buf]);
+      return;
+    }
   } catch (err) {
     post({ type: 'error', msg: String(err && err.message || err).slice(0, 300) });
   }
