@@ -736,6 +736,37 @@ async function openFromNative() {
   renderList();
 }
 
+// ───────────────────── 앱 설치 안내 (?install=1)
+// 링크 하나로 끝나게 만드는 화면 — 사람마다 말로 안내하지 않기 위해서다.
+// (스토어에 올리기 전까지의 다리. 스토어 배포가 확정되면 이 화면은 스토어 링크만 남기고 단순해진다)
+const APK_URL = 'https://github.com/think-fact0ry/reader/releases/download/apk-latest/saenggak-reader.apk';
+function renderInstall() {
+  document.body.innerHTML = `
+    <section class="view on" style="overflow:auto">
+      <div class="da-head"><div><span class="da-brand">생각공작소</span><div class="da-title">문서 리더기 설치</div></div></div>
+      <div class="insWrap">
+        <p class="insLead">앱을 설치하면 <b>메일·파일함에서 문서를 누를 때</b> 바로 열려요.
+          설치 없이 이 화면 그대로 써도 됩니다(그때는 공유 버튼으로 열어요).</p>
+
+        <div class="insStep"><span class="n">1</span><div><b>아래 [앱 받기]를 누르세요</b><br>
+          <span class="sub">받은 파일은 알림이나 다운로드 폴더에 있어요</span></div></div>
+
+        <div class="insStep"><span class="n">2</span><div><b>갤럭시는 한 번만 설정이 필요해요</b><br>
+          <span class="sub">설치가 막히면 → 설정 → 보안 및 개인정보 보호 → <b>보안 위험 자동 차단</b> 끄기</span><br>
+          <span class="sub">설치를 마치면 <b>다시 켜 두세요</b>(평소엔 켜 두는 게 안전합니다)</span></div></div>
+
+        <div class="insStep"><span class="n">3</span><div><b>받은 파일을 눌러 설치하세요</b><br>
+          <span class="sub">설치 뒤 문서를 누르면 목록에 <b>문서 리더기</b>가 보여요 — <b>‘한 번만’</b>을 누르시길 권합니다</span></div></div>
+
+        <a class="da-open" style="display:block;text-align:center;text-decoration:none;margin:18px 16px 6px" href="${APK_URL}">앱 받기</a>
+        <button class="fbtn" id="insWeb" style="width:calc(100% - 32px);margin:10px 16px;padding:13px">설치하지 않고 웹으로 쓰기</button>
+        <p class="insNote">앱을 쓰기 시작하면 홈 화면에 만들어 둔 바로가기는 지워 주세요.
+          안드로이드가 둘의 저장 공간을 따로 관리해서 <b>문서함 목록이 서로 달라 보입니다</b>.</p>
+      </div>
+    </section>`;
+  $('insWeb').onclick = () => location.href = './';
+}
+
 // ───────────────────── 자가진단 (?diag=1) — 실기기에서 무엇이 되고 안 되는지 앱이 스스로 보고
 async function renderDiag() {
   const rows = [];
@@ -806,7 +837,8 @@ const params = new URLSearchParams(location.search);
 enforceLRU(params.get('doc') || null); // 공유 진입으로 쌓인 캐시도 상한 유지 (오리진 공유 수용 조건)
 if (params.get('share') === 'toobig') toast('60MB가 넘는 파일은 열 수 없어요');
 else if (params.get('share') === 'fail' || params.get('share') === 'empty') toast('공유로 받은 파일을 읽지 못했어요 · [파일 열기]로 시도해 주세요');
-if (params.get('diag')) renderDiag();
+if (params.get('install')) renderInstall();
+else if (params.get('diag')) renderDiag();
 else if (params.get('native')) openFromNative();
 else if (params.get('doc')) openDoc(params.get('doc'), false);
 else { renderList(); prefetchHwpEngine(); }

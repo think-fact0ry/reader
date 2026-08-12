@@ -104,6 +104,16 @@ svg.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-
 .editbar .eok{flex:none;border:0;border-radius:11px;background:var(--green700);color:#fff;font-size:14.5px;font-weight:700;padding:11px 16px}
 .bhead{padding:14px 22px 8px;font-size:13px;font-weight:700;color:var(--g500)}
 
+/* 설치 안내(?install=1) */
+.insWrap{padding:4px 16px 40px}
+.insLead{font-size:14.5px;color:var(--g700);line-height:1.65;margin:2px 0 18px}
+.insStep{display:flex;gap:12px;padding:14px;border:1px solid var(--g100);border-radius:14px;margin-bottom:10px;
+  box-shadow:0 1px 4px rgba(0,0,0,.04);font-size:14.5px;line-height:1.6}
+.insStep .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--green700);color:#fff;
+  font-size:13.5px;font-weight:800;display:grid;place-items:center}
+.insStep .sub{font-size:13px;color:var(--g600);line-height:1.7}
+.insNote{margin:16px 0 0;padding:12px 14px;border-radius:12px;background:var(--g100);color:var(--g600);font-size:12.5px;line-height:1.65}
+
 /* 자가진단(?diag=1) */
 .diag{width:100%;border-collapse:collapse;font-size:14px}
 .diag td{padding:11px 2px;border-bottom:1px solid var(--g100);vertical-align:top}
