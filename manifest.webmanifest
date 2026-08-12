@@ -1,6 +1,6 @@
 {
-  "name": "문서리더",
-  "short_name": "문서리더",
+  "name": "생각공작소 문서 리더",
+  "short_name": "문서 리더",
   "description": "한글(.hwp/.hwpx)·엑셀·PDF 서류를 광고 없이 읽어요",
   "lang": "ko",
   "start_url": "./?src=pwa",

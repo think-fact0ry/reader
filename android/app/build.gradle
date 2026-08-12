@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'kr.thinkfactory.reader'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "kr.thinkfactory.reader"
+        minSdk 26          // 안드로이드 8 이상 (사용 기기 = 최신 갤럭시 3대)
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        // 내부 사이드로드 전용 고정 키 — 이게 있어야 업데이트 설치가 '덮어쓰기'로 된다.
+        // (Actions가 매번 새 debug 키를 만들면 재설치 때마다 기존 앱을 지워야 한다)
+        release {
+            storeFile file('reader.keystore')
+            storePassword 'saenggak'
+            keyAlias 'reader'
+            keyPassword 'saenggak'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'   // FileProvider
+}

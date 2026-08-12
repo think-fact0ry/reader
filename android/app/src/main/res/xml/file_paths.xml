@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 보내기용 임시 파일만 노출 (앱 캐시 안 share/ 한 폴더) -->
+    <cache-path name="share" path="share/" />
+</paths>

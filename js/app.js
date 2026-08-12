@@ -29,7 +29,7 @@ function badgeOf(ext) {
   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return ['사진', 'fb-img'];
   return [ext ? ext.toUpperCase().slice(0, 4) : '파일', 'fb-etc'];
 }
-const srcLabel = { share: '공유로 받음', picker: '파일 열기' };
+const srcLabel = { share: '공유로 받음', picker: '파일 열기', native: '다른 앱에서 열기' };
 
 // ───────────────────── 문서함
 async function renderList() {
@@ -630,8 +630,22 @@ $('miPrint').addEventListener('click', async () => {
   window.print(); // 페이지형은 화면에 렌더된 쪽까지 출력 — 긴 문서는 스크롤로 내려 렌더 후 출력
 });
 
-// 안드로이드: 공유 시트(메일·카톡 회신) 우선, 없으면 다운로드 폴더로 저장
+// 안드로이드: 공유 시트(메일·카톡 회신) 우선, 없으면 다운로드 폴더로 저장.
+// 네이티브 셸 안에서는 WebView에 공유·저장 기능이 없어 앱 쪽 창구를 쓴다.
+const NATIVE = typeof window.__native === 'object' && window.__native && typeof window.__native.saveBase64 === 'function';
+const blobToBase64 = (blob) => new Promise((res, rej) => {
+  const fr = new FileReader();
+  fr.onload = () => res(String(fr.result).split(',')[1] || '');
+  fr.onerror = () => rej(fr.error);
+  fr.readAsDataURL(blob);
+});
 async function shareOrDownload(blob, name, mime, preferShare) {
+  if (NATIVE) {
+    const b64 = await blobToBase64(blob);
+    if (preferShare && typeof window.__native.shareBase64 === 'function') { window.__native.shareBase64(b64, name, mime || ''); return 'share'; }
+    window.__native.saveBase64(b64, name, mime || '');
+    return 'native-save';
+  }
   const file = new File([blob], name, { type: mime });
   if (preferShare && navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: name }); return 'share'; }
@@ -654,8 +668,8 @@ $('svShare').addEventListener('click', async () => {
 $('svDown').addEventListener('click', async () => {
   closeMenu();
   if (!pendingSave) return;
-  await shareOrDownload(pendingSave.blob, pendingSave.name, pendingSave.blob.type, false);
-  toast(`다운로드 폴더에 저장했어요 · ${pendingSave.name}`);
+  const how = await shareOrDownload(pendingSave.blob, pendingSave.name, pendingSave.blob.type, false);
+  if (how !== 'native-save') toast(`다운로드 폴더에 저장했어요 · ${pendingSave.name}`); // 앱 안에서는 앱이 알려준다
 });
 $('svReset').addEventListener('click', () => {
   closeMenu();
@@ -700,6 +714,28 @@ window.addEventListener('popstate', () => {
   else showList(false);
 });
 
+// ───────────────────── 네이티브 셸(안드로이드 앱)에서 넘어온 파일 받기
+// 안드로이드 '연결 앱/다른 앱으로 열기'는 웹앱이 등록될 수 없어(구조적 한계, docs/5 §1-f)
+// 얇은 네이티브 껍데기가 인텐트를 받아 이 경로로 파일 바이트를 흘려준다.
+async function openFromNative() {
+  loadingShow('문서를 여는 중이에요');
+  try {
+    const r = await fetch('__native_file?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('no file ' + r.status);
+    const name = decodeURIComponent(r.headers.get('X-File-Name') || '문서');
+    const blob = await r.blob();
+    const file = new File([blob], name, { type: r.headers.get('Content-Type') || '', lastModified: Date.now() });
+    const id = await registerFile(file, 'native');
+    loadingHide();
+    if (id) { history.replaceState({}, '', `./?doc=${id}`); openDoc(id, false); return; }
+  } catch (e) {
+    loadingHide();
+    toast('파일을 받지 못했어요 · [파일 열기]로 열어 주세요');
+  }
+  history.replaceState({}, '', './');
+  renderList();
+}
+
 // ───────────────────── 자가진단 (?diag=1) — 실기기에서 무엇이 되고 안 되는지 앱이 스스로 보고
 async function renderDiag() {
   const rows = [];
@@ -709,7 +745,8 @@ async function renderDiag() {
   const inApp = /KAKAOTALK|NAVER\(inapp|inapp;|FBAV|Instagram|Line\//i.test(ua);
   const br = /SamsungBrowser/i.test(ua) ? '삼성 인터넷' : /Chrome/i.test(ua) ? 'Chrome' : /Firefox/i.test(ua) ? 'Firefox' : '기타';
   rows.push(['앱으로 설치돼 열림', yn(standalone), standalone ? '' : '홈 화면 아이콘으로 열어야 공유 진입이 됩니다', 'warn']);
-  rows.push(['브라우저', (inApp ? '앱 안 브라우저(' + br + ')' : br), inApp ? '카톡·메일 앱 안에서 열림 — Chrome으로 열어야 합니다' : '', 'warn']);
+  rows.push(['실행 방식', NATIVE ? '설치한 앱(문서 리더)' : (inApp ? '앱 안 브라우저(' + br + ')' : br + ' 브라우저'),
+    NATIVE ? '파일에서 바로 열기가 됩니다' : (inApp ? '카톡·메일 앱 안에서 열림 — Chrome으로 열어야 합니다' : ''), NATIVE ? 'ok' : 'warn']);
   let swOk = !!navigator.serviceWorker.controller;
   rows.push(['서비스워커 작동', yn(swOk), swOk ? '' : '새로고침 한 번 해 주세요(공유 진입이 이것에 매달립니다)', 'warn']);
   let canFile = false;
@@ -770,6 +807,7 @@ enforceLRU(params.get('doc') || null); // 공유 진입으로 쌓인 캐시도 �
 if (params.get('share') === 'toobig') toast('60MB가 넘는 파일은 열 수 없어요');
 else if (params.get('share') === 'fail' || params.get('share') === 'empty') toast('공유로 받은 파일을 읽지 못했어요 · [파일 열기]로 시도해 주세요');
 if (params.get('diag')) renderDiag();
+else if (params.get('native')) openFromNative();
 else if (params.get('doc')) openDoc(params.get('doc'), false);
 else { renderList(); prefetchHwpEngine(); }
 
