@@ -1,6 +1,7 @@
 // 문서리더 — 메인 앱 (문서함 + 뷰어 셸). 파싱은 워커 격리, 뷰어 셸은 kind만 본다(docs/5 §6 계약)
 import { docsAll, docGet, docPut, docDel, prefGet, prefSet, docId, enforceLRU, MAX_CACHE_FILE, MAX_OPEN_FILE } from './db.js';
 
+const APP_VER = 'v0.9';       // ⚠️배포마다 올린다 — 문서함 푸터·?diag가 이 값으로 "지금 최신 판인가"를 판별(유성 08-16). sw.js VER(캐시 판)와는 별개 축
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -824,7 +825,7 @@ async function renderDiag() {
   rows.push(['서비스워커 작동', yn(swOk), swOk ? '' : '새로고침 한 번 해 주세요(공유 진입이 이것에 매달립니다)', 'warn']);
   let shellVer = '';
   try { shellVer = (await caches.keys()).filter(k => k.startsWith('shell-')).map(k => k.slice(6)).join('·'); } catch {}
-  rows.push(['앱 판(버전)', shellVer || '알 수 없음', '열 때마다 최신 판을 먼저 받아요 · 반영은 배포 후 10분 안', 'info']);
+  rows.push(['앱 판(버전)', APP_VER + (shellVer ? ' · 셸 ' + shellVer : ''), '열 때마다 최신 판을 먼저 받아요 · 반영은 배포 후 10분 안', 'info']);
   let canFile = false;
   try {
     const f = new File([new Uint8Array([1, 2, 3])], 't.hwp', { type: 'application/octet-stream' });
@@ -895,11 +896,21 @@ else {
 }
 
 // ───────────────────── SW·설치·인앱 브라우저
+if ($('appVer')) $('appVer').textContent = APP_VER;   // 문서함 푸터 버전 — "내 폰이 최신인가"를 이 글자로 판별(?install·?diag 화면엔 요소 없음)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+  const reg$ = navigator.serviceWorker.register('sw.js');
   // SW(activate)가 "이 화면 최신 판이냐" 물으면 응답한다 — 응답이 없는 화면(=캐시 우선 시절 옛 셸)만 SW가 새로 고친다(sw.js r12)
   navigator.serviceWorker.addEventListener('message', (ev) => {
     if (ev.data && ev.data.type === 'gen?' && ev.ports[0]) ev.ports[0].postMessage('fresh');
+  });
+  // 설치 PWA의 "다시 열기"는 리로드가 아니라 접힌 화면 복귀일 수 있다 — 그때도 갱신을 확인하고,
+  // 오래(1시간+) 접혀 있던 문서함 화면은 새로 고쳐 최신 판을 받는다(뷰어·수정 중엔 안 건드림 — 어차피 IDB가 보존하지만 화면 흐름을 안 끊는다)
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    reg$.then(r => r.update()).catch(() => {});
+    const lv = $('listView');
+    if (hiddenAt && Date.now() - hiddenAt > 3600e3 && lv && lv.classList.contains('on')) location.reload();
   });
 }
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
