@@ -140,7 +140,7 @@ async function openDoc(id, push) {
   cleanupViewer();
   doc.lastOpenedAt = Date.now();
   try { await docPut(doc); } catch {}
-  if (push) history.pushState({ v: 1 }, '', `./?doc=${id}`);
+  if (push) pushEntry({ v: 1 }, `./?doc=${id}`);   // 히스토리 칸은 전부 pushEntry로 — depth가 어긋나면 종료가 한 번 밀린다
 
   $('listView').classList.remove('on');
   $('viewerView').classList.add('on');
@@ -206,7 +206,7 @@ function loadingProg(p, msg) {
   if (msg) $('loadMsg').textContent = `${msg} · ${Math.round(Math.min(99, p))}%`;
 }
 function loadingHide() { clearTimeout(loadTimer); $('loading').classList.remove('on'); }
-$('loadCancel').addEventListener('click', () => { cleanupViewer(); showList(true); });
+$('loadCancel').addEventListener('click', () => { cleanupViewer(); goList(); });
 
 // ───────────────────── 핀치 확대 (앱이 직접 수신 — CSS zoom이라 틀 고정과 공존)
 function attachPinch(scroller, getTarget, opts = {}) {
@@ -439,6 +439,7 @@ async function viewSheet(doc, blob) {
     if (picked) picked.classList.remove('picked');
     picked = null; editTarget = null;
   }
+  cur.closeEdit = closeEdit;   // 뒤로가기가 '편집바 닫기'를 한 겹으로 쓴다(§4.11-1 closeTopLayer)
   function commitEdit(moveNext) {
     if (!editTarget) return;
     const v = $('editInput').value;
@@ -682,7 +683,7 @@ $('miRemove').addEventListener('click', async () => {
   lastRemoved = d;
   await docDel(cur.doc.id);
   transientBlobs.delete(cur.doc.id);
-  showList(true);
+  goList();   // 뷰어 칸을 되돌려 놓고 문서함으로(§4.11-2 — 코드도 사람과 같은 길)
   snackbar('목록에서 지웠어요 · 폰의 원본 파일은 그대로예요', '되돌리기', async () => {
     if (lastRemoved) { await docPut(lastRemoved); lastRemoved = null; renderList(); }
   });
@@ -702,16 +703,56 @@ function snackbar(msg, act, fn) {
 const hideSnack = () => $('snack').classList.remove('on');
 const toast = (msg) => snackbar(msg, '');
 
-// ───────────────────── 히스토리 (문서함서 뒤로 = 종료가 정상 — 트랩 금지)
+// ───────────────────── 뒤로가기/스와이프 (§4.11 — 태블릿 허브 패턴 이식)
+// 한 번의 뒤로 = **눈에 보이는 한 단계만**: ①열린 겹(암호창·시트·편집바) ②뷰어면 문서함으로
+// ③문서함(루트)에서 = 더블백 종료 — 첫 뒤로는 안내만, 2초 안에 한 번 더 눌러야 나간다(§4.11-4 ex18).
+//
+// ⚠️ 첫 뒤로에서 가드를 **다시 쌓지 않는다**(2026-08-16 헤드리스 CDP 실측으로 바로잡은 자리):
+//    설치한 앱은 문서함이 히스토리 *첫 칸*이라, 첫 뒤로에 가드를 다시 쌓으면 두 번째 뒤로가
+//    `history.go(-1)`을 불러도 **아래에 칸이 없어 아무 일도 안 난다**(=두 번으론 안 꺼지고 세 번이 필요).
+//    가드를 안 쌓아야 두 번째 뒤로가 브라우저/OS에 그대로 닿아 앱이 닫힌다. 2초가 지나 안내가 사라지면
+//    그때 다시 쌓아, 다음 뒤로가 또 '첫 단계'가 되게 한다.
 history.scrollRestoration = 'manual';
-$('btnBack').addEventListener('click', () => {
-  if (history.state && history.state.v) history.back();
-  else showList(true);
-});
+
+let depth = 0;                  // 문서함(루트)=0. 위로 쌓인 칸 수 — 0이면 다음 뒤로는 앱 밖이다
+let exitArmed = false, exitT = 0;
+const listOpen = () => $('listView').classList.contains('on');
+const viewUrl = () => (!listOpen() && cur) ? `./?doc=${cur.doc.id}` : './';
+function pushEntry(state, url) { try { history.pushState(state, '', url); depth++; } catch {} }
+function guardPush() { pushEntry({ g: 1 }, viewUrl()); }
+
+function showExitHint() {
+  const e = $('exitHint'), s = $('snack');
+  // 스낵바가 떠 있으면 그 위로(§5.5 — 하단 고정 블록을 가리지 않는다). 재는 건 그 요소의 offsetHeight뿐
+  e.style.bottom = s.classList.contains('on') ? `calc(${s.offsetHeight + 26}px + env(safe-area-inset-bottom))` : '';
+  e.classList.add('on');
+}
+const hideExitHint = () => $('exitHint').classList.remove('on');
+function disarmExit() {         // 나가려던 게 아니었다 → 무장 해제하고 가드를 되돌린다
+  if (!exitArmed) return;
+  exitArmed = false; clearTimeout(exitT); hideExitHint();
+  if (depth === 0) guardPush();
+}
+document.addEventListener('pointerdown', () => { if (exitArmed) disarmExit(); }, true);
+
+function closeTopLayer() {      // 맨 위 겹 한 장만 닫는다(위 → 아래)
+  if ($('pwDlg').classList.contains('on')) { $('pwCancel').click(); return true; }   // 암호 입력 = '취소'와 같은 길(약속 resolve)
+  if ($('menuSheet').classList.contains('on') || $('saveSheet').classList.contains('on')) { closeMenu(); return true; }
+  if ($('editBar').classList.contains('on') && cur && cur.closeEdit) { cur.closeEdit(); return true; }
+  return false;
+}
+
+$('btnBack').addEventListener('click', () => history.back());   // 백버튼도 스와이프와 같은 길로(§4.11-2)
+function goList() { if (!listOpen()) history.back(); else renderList(); }   // 코드가 문서함으로 돌아갈 때도 히스토리를 맞춘다
+
 window.addEventListener('popstate', () => {
-  const id = new URLSearchParams(location.search).get('doc');
-  if (id) openDoc(id, false);
-  else showList(false);
+  if (!$('exitHint')) return;   // ?install·?diag 화면은 body를 갈아끼워 앱 요소가 없다
+  depth = Math.max(0, depth - 1);
+  if (closeTopLayer()) { guardPush(); return; }                              // 겹 한 장 닫고 그 칸을 되돌려 놓는다
+  if (exitArmed) { exitArmed = false; clearTimeout(exitT); hideExitHint(); history.go(-1); return; }  // 아래에 앱 칸이 남아 있던 경우의 종료
+  if (!listOpen()) { showList(true); if (depth === 0) guardPush(); return; }  // 뷰어 → 문서함 (한 단계)
+  showExitHint(); exitArmed = true;                                          // 문서함에서 뒤로 = 첫 번째는 안내만
+  exitT = setTimeout(() => { exitArmed = false; hideExitHint(); if (depth === 0) guardPush(); }, 2000);
 });
 
 // ───────────────────── 네이티브 셸(안드로이드 앱)에서 넘어온 파일 받기
@@ -727,7 +768,7 @@ async function openFromNative() {
     const file = new File([blob], name, { type: r.headers.get('Content-Type') || '', lastModified: Date.now() });
     const id = await registerFile(file, 'native');
     loadingHide();
-    if (id) { history.replaceState({}, '', `./?doc=${id}`); openDoc(id, false); return; }
+    if (id) { openDoc(id, true); return; }   // 뷰어는 자기 칸을 갖는다(뒤로 = 문서함)
   } catch (e) {
     loadingHide();
     toast('파일을 받지 못했어요 · [파일 열기]로 열어 주세요');
@@ -840,9 +881,15 @@ if (params.get('share') === 'toobig') toast('60MB가 넘는 파일은 열 수 �
 else if (params.get('share') === 'fail' || params.get('share') === 'empty') toast('공유로 받은 파일을 읽지 못했어요 · [파일 열기]로 시도해 주세요');
 if (params.get('install')) renderInstall();
 else if (params.get('diag')) renderDiag();
-else if (params.get('native')) openFromNative();
-else if (params.get('doc')) openDoc(params.get('doc'), false);
-else { renderList(); prefetchHwpEngine(); }
+else {
+  // 뒤로가기의 기준점 고정: 히스토리 **첫 칸 = 문서함**(§4.11). 공유·바로가기로 ?doc=… 로 들어와도 같다
+  // — 그래야 "뷰어에서 뒤로 = 문서함 / 문서함에서 뒤로 = 더블백 종료"가 진입 경로와 무관하게 같아진다.
+  history.replaceState({ root: 1 }, '', './');
+  guardPush();
+  if (params.get('native')) openFromNative();
+  else if (params.get('doc')) openDoc(params.get('doc'), true);
+  else { renderList(); prefetchHwpEngine(); }
+}
 
 // ───────────────────── SW·설치·인앱 브라우저
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');

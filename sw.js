@@ -1,6 +1,6 @@
 // 문서리더 SW — 셸 프리캐시 + 벤더(WASM 7MB 포함) 캐시 + 공유 진입(share target POST) 수신
 // 주의: 공유 POST는 SW가 안 잡으면 GitHub Pages가 405를 낸다(docs/5 §3) — clients.claim으로 최대한 빨리 장악
-const VER = 'r10';
+const VER = 'r11'; // r11 뒤로가기/스와이프 단계적 + 더블백 종료(§4.11) / r10 홈 화면 추가 중심 설치 안내
 const SHELL = `shell-${VER}`;
 const VENDOR = 'vendor-v2'; // 벤더는 파일명이 곧 버전 — 셸과 분리해 갱신 시 재다운로드 방지
 const SHELL_FILES = [

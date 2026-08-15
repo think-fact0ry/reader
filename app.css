@@ -153,11 +153,19 @@ svg.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-
 .bsheet .bi.danger{color:var(--red);font-weight:700}
 .bsheet .close{display:block;width:calc(100% - 32px);margin:10px 16px 0;text-align:center;border:1px solid var(--g200);
   border-radius:12px;padding:12px;font-size:14.5px;font-weight:700;color:var(--g600);background:#fff}
-.snack{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));background:var(--g800);color:#fff;
+.snack{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));background:var(--g800);color:#F9FBFA;
   border-radius:12px;padding:13px 15px;font-size:13.5px;display:none;align-items:center;gap:8px;z-index:70;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .snack.on{display:flex}
 .snack span{flex:1;min-width:0}
 .snack button{flex:none;border:0;background:none;color:#9fe0b8;font-weight:700;font-size:13.5px;padding:2px 4px}
+/* 종료 확인 알약(§4.11-4 ex18) — 태블릿 허브 #exitHint 값 복제. 터치를 막지 않고 2초만 떠 있다 */
+#exitHint{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);
+  z-index:90;display:flex;align-items:center;gap:10px;max-width:calc(100% - 32px);background:var(--g900);color:#F9FBFA;
+  font-size:14.5px;font-weight:600;padding:9px 20px 9px 9px;border-radius:99px;box-shadow:0 6px 20px rgba(0,0,0,.28);
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap}
+#exitHint.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#exitHint .ck{width:28px;height:28px;border-radius:50%;background:var(--green600);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#exitHint .ck svg{width:15px;height:15px}
 .dlg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:80;padding:24px}
 .dlg.on{display:flex}
 .dlg .box{background:#fff;border-radius:18px;padding:22px 20px 16px;width:100%;max-width:340px}
@@ -177,7 +185,7 @@ svg.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-
   body *{visibility:hidden}
   #viewerView, #viewerView .vbody, #viewerView .vbody *{visibility:visible}
   #viewerView .vbody{position:absolute;inset:0;overflow:visible;background:#fff}
-  .vtop,.vfoot,.editbar,.warnbar,.loading,.snack,.bsheet,.sheetbg{display:none!important}
+  .vtop,.vfoot,.editbar,.warnbar,.loading,.snack,.bsheet,.sheetbg,#exitHint{display:none!important}
   .pages{width:auto;padding:0;gap:0}
   .pageph{box-shadow:none;border-radius:0;page-break-after:always}
 }
