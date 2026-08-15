@@ -822,6 +822,9 @@ async function renderDiag() {
     NATIVE ? '파일에서 바로 열기가 됩니다' : (inApp ? '카톡·메일 앱 안에서 열림 — Chrome으로 열어야 합니다' : ''), NATIVE ? 'ok' : 'warn']);
   let swOk = !!navigator.serviceWorker.controller;
   rows.push(['서비스워커 작동', yn(swOk), swOk ? '' : '새로고침 한 번 해 주세요(공유 진입이 이것에 매달립니다)', 'warn']);
+  let shellVer = '';
+  try { shellVer = (await caches.keys()).filter(k => k.startsWith('shell-')).map(k => k.slice(6)).join('·'); } catch {}
+  rows.push(['앱 판(버전)', shellVer || '알 수 없음', '열 때마다 최신 판을 먼저 받아요 · 반영은 배포 후 10분 안', 'info']);
   let canFile = false;
   try {
     const f = new File([new Uint8Array([1, 2, 3])], 't.hwp', { type: 'application/octet-stream' });
@@ -892,7 +895,13 @@ else {
 }
 
 // ───────────────────── SW·설치·인앱 브라우저
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+  // SW(activate)가 "이 화면 최신 판이냐" 물으면 응답한다 — 응답이 없는 화면(=캐시 우선 시절 옛 셸)만 SW가 새로 고친다(sw.js r12)
+  navigator.serviceWorker.addEventListener('message', (ev) => {
+    if (ev.data && ev.data.type === 'gen?' && ev.ports[0]) ev.ports[0].postMessage('fresh');
+  });
+}
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
 
 const ua = navigator.userAgent;

@@ -1,6 +1,6 @@
 // 문서리더 SW — 셸 프리캐시 + 벤더(WASM 7MB 포함) 캐시 + 공유 진입(share target POST) 수신
 // 주의: 공유 POST는 SW가 안 잡으면 GitHub Pages가 405를 낸다(docs/5 §3) — clients.claim으로 최대한 빨리 장악
-const VER = 'r11'; // r11 뒤로가기/스와이프 단계적 + 더블백 종료(§4.11) / r10 홈 화면 추가 중심 설치 안내
+const VER = 'r12'; // r12 셸=network-first 자동 갱신(유성 08-16 "업데이트가 안 됐어" — 캐시 우선이라 첫 열람이 옛 판이던 것) / r11 뒤로가기/스와이프 더블백(§4.11)
 const SHELL = `shell-${VER}`;
 const VENDOR = 'vendor-v2'; // 벤더는 파일명이 곧 버전 — 셸과 분리해 갱신 시 재다운로드 방지
 const SHELL_FILES = [
@@ -16,6 +16,18 @@ self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     for (const k of await caches.keys()) if (k !== SHELL && k !== VENDOR) await caches.delete(k);
     await self.clients.claim();
+    // 캐시 우선(r11 이전) 셸로 이미 떠 있는 화면은 옛 판이다 — 물음에 응답 없는 화면만 새로 고친다.
+    // r12+ 셸은 network-first라 뜰 때 이미 최신이고 app.js가 응답하므로 건드리지 않는다(엑셀 수정 중 강제 새로고침 방지).
+    for (const cl of await self.clients.matchAll({ type: 'window' })) {
+      const fresh = await new Promise((res) => {
+        const mc = new MessageChannel();
+        const t = setTimeout(() => res(false), 900);
+        mc.port1.onmessage = () => { clearTimeout(t); res(true); };
+        try { cl.postMessage({ type: 'gen?' }, [mc.port2]); } catch { clearTimeout(t); res(false); }
+      });
+      // ⚠️navigate를 await 금지 — 리로드는 activation 완료를 기다리므로 여기서 기다리면 서로를 기다리는 교착
+      if (!fresh) { try { cl.navigate(cl.url).catch(() => {}); } catch {} }
+    }
   })());
 });
 
@@ -88,10 +100,18 @@ self.addEventListener('fetch', (e) => {
     }));
     return;
   }
-  // ── 셸: cache-first + 백그라운드 갱신 (오프라인에서도 열리게)
+  // ── 셸: network-first (열면 최신 — 유성 08-16 "자동 업데이트하게") + 캐시 폴백(오프라인·회선 3초 지연 시)
+  //    cache:'no-cache'=브라우저 HTTP 캐시(Pages max-age=600)를 건너뛰고 ETag 재검증 — Pages CDN ~10분은 남는 한계.
+  //    navigate 모드 Request는 fetch(req,init) 재구성이 TypeError라 URL로 fetch(정적 서빙이라 리다이렉트 없음).
   e.respondWith(caches.open(SHELL).then(async (c) => {
-    const hit = await c.match(e.request, { ignoreSearch: url.pathname.endsWith('/') || url.pathname.endsWith('index.html') });
-    const net = fetch(e.request).then(resp => { if (resp.ok) c.put(e.request, resp.clone()); return resp; }).catch(() => null);
-    return hit || net.then(r => r || new Response('offline', { status: 503 }));
+    const ignoreSearch = url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
+    const net = (e.request.mode === 'navigate' ? fetch(url.href, { cache: 'no-cache' }) : fetch(e.request, { cache: 'no-cache' }))
+      .then(resp => { if (resp.ok) c.put(ignoreSearch ? url.origin + url.pathname : e.request, resp.clone()); return resp; });
+    const hit = await c.match(e.request, { ignoreSearch });
+    if (!hit) return net.catch(() => new Response('offline', { status: 503 }));
+    return Promise.race([
+      net.catch(() => hit),                             // 오프라인·실패 → 캐시
+      new Promise(r => setTimeout(() => r(hit), 3000)), // 회선이 3초 못 주면 캐시 먼저(속도 우선) — 받아지는 새 판은 캐시에 들어가 다음 열기에 반영
+    ]);
   }));
 });
