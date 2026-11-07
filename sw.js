@@ -1,6 +1,6 @@
 // 문서리더 SW — 셸 프리캐시 + 벤더(WASM 7MB 포함) 캐시 + 공유 진입(share target POST) 수신
 // 주의: 공유 POST는 SW가 안 잡으면 GitHub Pages가 405를 낸다(docs/5 §3) — clients.claim으로 최대한 빨리 장악
-const VER = 'r12'; // r12 셸=network-first 자동 갱신(유성 08-16 "업데이트가 안 됐어" — 캐시 우선이라 첫 열람이 옛 판이던 것) / r11 뒤로가기/스와이프 더블백(§4.11)
+const VER = 'r13'; // r13 11-07 green100~400 새 값(유성 「green100 전부 맞추기」 → 「200, 300, 400도 바꿀 것」 → 「Go」) / r12 셸=network-first 자동 갱신(유성 08-16 "업데이트가 안 됐어" — 캐시 우선이라 첫 열람이 옛 판이던 것) / r11 뒤로가기/스와이프 더블백(§4.11)
 const SHELL = `shell-${VER}`;
 const VENDOR = 'vendor-v2'; // 벤더는 파일명이 곧 버전 — 셸과 분리해 갱신 시 재다운로드 방지
 const SHELL_FILES = [

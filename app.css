@@ -3,7 +3,7 @@
   --g50:#f9fafb; --g100:#f2f4f6; --g200:#e5e8eb; --g300:#d1d6db;
   --g400:#b0b8c1; --g500:#8b95a1; --g600:#6b7684; --g700:#4e5968;
   --g800:#333d4b; --g900:#191f28;
-  --green50:#f8fbf9; --green100:#e9f8ee; --green200:#cef2db;
+  --green50:#f8fbf9; --green100:#f0f8f3; --green200:#d5efde;
   --green600:#3a8a5f; --green700:#166841; --green800:#01492a;
   --red:#f04452; --warn-weak-bg:#fef4e2; --warn-weak-fg:#c07f00;
   --r-sm:clamp(7px,1.8vw,10px); --r-md:clamp(10px,2.6vw,14px); --r-lg:clamp(13px,3.2vw,20px);
