@@ -133,7 +133,7 @@ async function openDoc(id, push) {
   const blob = (doc && doc.bytes) || transientBlobs.get(id);
   if (!doc || !blob) {
     showList(true);
-    toast('이 문서가 캐시에 없어요 · [파일 열기]에서 다시 선택해 주세요');
+    toast('이 문서가 캐시에 없어요. [파일 열기]에서 다시 선택해 주세요');
     if (doc && !blob) await docDel(id);
     renderList();
     return;
@@ -467,7 +467,7 @@ async function viewSheet(doc, blob) {
     $('btnSave').style.display = 'none';
     const d = await docGet(doc.id);
     if (d) { delete d.edits; try { await docPut(d); } catch {} }
-    toast('고친 내용을 되돌렸어요 · 원본 그대로예요');
+    toast('고친 내용을 되돌렸어요. 원본 그대로예요');
     openDoc(doc.id, false); // 원본에서 다시 읽어 화면 복구
   };
 
@@ -506,7 +506,7 @@ async function saveEditedSheet(doc, worker, edits) {
   openSheet('saveSheet');
 }
 let pendingSave = null;
-function showErrorToast(err) { toast('저장하지 못했어요 · ' + String(err.message || err).slice(0, 60)); }
+function showErrorToast(err) { toast('저장하지 못했어요. ' + String(err.message || err).slice(0, 60)); }
 
 // ───────────────────── PDF 뷰어 (pdf.js — pdfpng 벤더 승계)
 async function viewPdf(doc, blob) {
@@ -665,13 +665,13 @@ $('svShare').addEventListener('click', async () => {
   closeMenu();
   if (!pendingSave) return;
   const how = await shareOrDownload(pendingSave.blob, pendingSave.name, pendingSave.blob.type, true);
-  if (how === 'download') toast(`보내기가 안 돼서 폰에 저장했어요 · ${pendingSave.name}`);
+  if (how === 'download') toast(`보내기가 안 돼서 폰에 저장했어요 (${pendingSave.name})`);
 });
 $('svDown').addEventListener('click', async () => {
   closeMenu();
   if (!pendingSave) return;
   const how = await shareOrDownload(pendingSave.blob, pendingSave.name, pendingSave.blob.type, false);
-  if (how !== 'native-save') toast(`다운로드 폴더에 저장했어요 · ${pendingSave.name}`); // 앱 안에서는 앱이 알려준다
+  if (how !== 'native-save') toast(`다운로드 폴더에 저장했어요 (${pendingSave.name})`); // 앱 안에서는 앱이 알려준다
 });
 $('svReset').addEventListener('click', () => {
   closeMenu();
@@ -685,7 +685,7 @@ $('miRemove').addEventListener('click', async () => {
   await docDel(cur.doc.id);
   transientBlobs.delete(cur.doc.id);
   goList();   // 뷰어 칸을 되돌려 놓고 문서함으로(§4.11-2 — 코드도 사람과 같은 길)
-  snackbar('목록에서 지웠어요 · 폰의 원본 파일은 그대로예요', '되돌리기', async () => {
+  snackbar('목록에서 지웠어요. 폰의 원본 파일은 그대로예요', '되돌리기', async () => {
     if (lastRemoved) { await docPut(lastRemoved); lastRemoved = null; renderList(); }
   });
 });
@@ -772,7 +772,7 @@ async function openFromNative() {
     if (id) { openDoc(id, true); return; }   // 뷰어는 자기 칸을 갖는다(뒤로 = 문서함)
   } catch (e) {
     loadingHide();
-    toast('파일을 받지 못했어요 · [파일 열기]로 열어 주세요');
+    toast('파일을 받지 못했어요. [파일 열기]로 열어 주세요');
   }
   history.replaceState({}, '', './');
   renderList();
@@ -882,7 +882,7 @@ function prefetchHwpEngine() {
 const params = new URLSearchParams(location.search);
 enforceLRU(params.get('doc') || null); // 공유 진입으로 쌓인 캐시도 상한 유지 (오리진 공유 수용 조건)
 if (params.get('share') === 'toobig') toast('60MB가 넘는 파일은 열 수 없어요');
-else if (params.get('share') === 'fail' || params.get('share') === 'empty') toast('공유로 받은 파일을 읽지 못했어요 · [파일 열기]로 시도해 주세요');
+else if (params.get('share') === 'fail' || params.get('share') === 'empty') toast('공유로 받은 파일을 읽지 못했어요. [파일 열기]로 시도해 주세요');
 if (params.get('install')) renderInstall();
 else if (params.get('diag')) renderDiag();
 else {
