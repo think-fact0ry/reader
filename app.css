@@ -6,7 +6,7 @@
   --green50:#f8fbf9; --green100:#f0f8f3; --green200:#d5efde;
   --green600:#3a8a5f; --green700:#166841; --green800:#01492a;
   --red:#f04452; --warn-weak-bg:#fef4e2; --warn-weak-fg:#c07f00;
-  --r-sm:clamp(7px,1.8vw,10px); --r-md:clamp(10px,2.6vw,14px); --r-lg:clamp(13px,3.2vw,20px);
+  --r-sm:10px; --r-md:14px; --r-lg:20px;
   --toast-bg:var(--g800); --toast-fg:#F9FBFA; --toast-r:23px; --toast-ck:18px; /* §5.5 토스트 — docs/1 §3.1 정본 사본(이 파일은 토큰동기 마커 밖, 정본 바꿀 땐 같이) */
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
